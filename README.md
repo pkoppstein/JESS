@@ -3,11 +3,11 @@
 > The JESS language, the JESS.jq conformance checker, and the JESS script
 
 The "J" in JESS stands for JSON, and the ESS stands for "Extended Structural Schema".
-A JESS schema for one or more JSON texts is itself a JSON document or
-a collection of such documents.
-
 JESS is so-named because it extends a simple structural schema language
 in which every schema mirrors the structure of its conforming documents.
+
+A JESS schema for one or more JSON texts is itself a JSON document or
+a collection of such documents.
 
 This repository contains:
 
@@ -15,7 +15,8 @@ This repository contains:
 as the [Wiki Home Page](https://bitbucket.org/pkoppstein/jess/wiki/Home) of 
 this repository)
 * JESS.jq, a reference implementation of a conformance checker, written in [jq](https://stedolan.github.io/jq/) 
-* JESS, a wrapper script for JESS.jq.
+* JESS, a wrapper script for JESS.jq
+* supporting documentation.
 
 ## Table of Contents
 
@@ -69,8 +70,8 @@ One way to do so is to check out this repository to directory `~/.jq/`:
 ~~~sh
 mkdir ~/.jq
 cd ~/.jq
-hg clone ssh://hg@bitbucket.org/states50/nominate"
-# You may wish also to create a symlink to the JESS script, e.g.
+hg clone https://pkoppstein@bitbucket.org/pkoppstein/jess
+# You may wish also to create a symlink to the JESS script, e.g. by executing:
 ln -s ~/.jq/JESS/bin/JESS ~/bin
 ~~~
 
@@ -194,6 +195,13 @@ conforms_to(schema)
 
 For each input, `conforms_to(schema)` simply emits true or false depending on whether that input
 conforms to the given schema entity.
+
+# Experimental Aspects of the JESS Schema Language
+
+The definitions of the following named types are experimental and subject to change:
+
+* base64
+* ISO8601Date
 
 ## Contributing
 
