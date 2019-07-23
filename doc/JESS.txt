@@ -1,0 +1,834 @@
+2019.07.18
+
+JESS.txt
+
+## Table of Contents
+
+##  Part 1: JESS - JSON Extended Structural Schemas
+
+## Introduction
+## Rationale
+## Prerequisites
+## Structural Schemas
+## String-defined Types
+## Regex-defined Types
+## Extensions
+### Conjunction Constraints
+### Object-defined Constraints
+### Pipelines
+#### Pipeline Primitives
+### Specifying JSON Objects
+## Customization
+## Modularity
+## Metadata and Versioning
+
+## Part 2: JESS Syntax Summary
+
+## Part 3: Examples
+
+## APPENDIX: Constraint Object Semantics
+
+##################################################################
+
+## Introduction
+
+JESS is a schema language for JSON, with the property that every
+schema is itself a collection of one or more JSON documents.  A simple
+schema might consist of a single JSON document that mirrors the
+structure of the JSON entities being described.
+
+Some highlights:
+* user-defined named types are supported, e.g. for different date formats;
+* constraints, including referential integrity constraints, are supported;
+* modularity of a JESS schema is supported by allowing the
+  schema to be written as multiple JSON documents in different files;
+* a jq module, JESS.jq, is provided for validating JSON documents against a JESS
+  schema;
+* a bash script, also named JESS, provides a convenient wrapper for JESS.jq
+
+The "J" in JESS stands for JSON, and the ESS stands for "Extended
+Structural Schema".  JESS is so-named because it extends a simple structural schema
+language in which every schema exactly mirrors the structure of its
+conforming documents, e.g.:
+
+`["integer"]` specifies an array of integers
+
+`{"a": [0,1]}` specifies a JSON object with an array-valued key, "a", consisting only of 0s and 1s.
+
+`"/^[0-9]{5}$/" uses a regular expression to specify strings of exactly five digits
+
+The extensions allow complex constraints, including recursive
+constraints, to be specified economically but using only JSON syntax.
+
+For example, here is the JESS schema that specifies that every object
+within a JSON document, no matter where it occurs, must include an
+integer-valued "id":
+
+  ["&", { "forall": "..|objects", "includes": {"id": "integer" } }]
+
+This can be read from left to right as the requirement ("&") that 
+all objects ("..|objects") must include an integer-valued key named `"id"`.
+
+## Rationale
+
+The main reason for developing JESS was to have a highly expressive
+but readable schema language for JSON that meets all the following
+requirements:
+
+1. All schemas must be pure JSON.
+2. The schema language must subsume structural schemas as produced  by schema.jq.
+3. Recursive constraints must be supported.
+   E.g. it must be possible to require that the value of a key be a
+   JSON object within which every JSON object with a "name" key must
+   also have an integer-valued "id" key'.
+4. Both "open" and "closed" schemas should be supported.
+   For example, it should be possible to specify that an object has a specific set of keys,
+   or that it includes a specific set of keys without precluding the presence of additional keys.
+5. The set of named types must be extensible.
+6. It must be possible to define a schema in a modular way.
+7. There should be support for recursive constraints.
+8. There should be support for internal referential integrity
+constraints, e.g. that all integers appearing in one part of the
+document appear as values of "id" in another part of the document.
+
+
+### Additional goals:
+
+a) To avoid the combinatorial explosion of constraints that are mostly
+    specified by name (e.g. "CapitalizedString", "lowercaseString",
+   "nonZeroInteger+null", etc), it must be possible to specify
+   pipelines of functional transformations, and to specify
+   constraints by combining constraints and transformations.
+
+b) There should be a reference implementation, in jq 1.6,  of a schema conformance checker.
+
+c) The reference implementation should be simple enough to serve as a
+detailed functional specification of JESS.
+
+### Caveats
+
+The JESS validation checker JESS.jq is implemented in jq, which
+currently uses IEEE 754 64-bit numbers to represent JSON numbers.
+This implies certain well-known limitations regarding precision and
+the handling of very large and very small numbers, but does not affect
+the specification of numeric strings.
+
+## Prerequisites
+
+This document presupposes some familiarity with JSON.  Familiarity
+with jq will be helpful in understanding certain details, notably  about
+pipelines in object-defined constraints.
+
+To use JESS.jq to validate a JSON document against a JESS schema
+requires access to a jq executable (version 1.5 or greater).
+
+For further details about JESS.jq and the JESS script, see the
+documentation in the file JESS.jq.txt
+
+## Notation
+
+In this document, we will use the expression:
+
+ x :: s
+
+to mean that "x" conforms with the schema "s", which can also be read
+as "x is of type s" or sometimes simply as "x is a s", e.g.
+
+ 1 :: "number"
+
+Similary, the expression
+
+  x XX s
+
+is shorthand for x does not conform to s.
+
+
+## Structural Schemas
+
+JESS is based on structural schemas, which can be introduced by example:
+
+`"string"` specifies a JSON string.
+
+`["integer"]` specifies an array of integers, that is, of JSON numbers
+that that are numerically equal to their floor.
+
+`[0, 1]` specifies an array of 0s and/or 1s.
+
+`["string", null]` specifies an array the elements of which are all
+either a string or `null`.
+
+`["Z", "null"]` specifies an array in which the elements are integer-valued strings and/or nulls.
+
+`{"id": "integer"}` specifies a JSON object with
+exactly one key: an integer-valued key named "id".
+
+`[[ 0,1]]` specifies an array of 0-1 arrays.
+
+The language of purely structural schemas is insufficient
+to specify the set of 2x2 matrices as a type, and hence the "E"
+for "extended" in JESS.  Before considering these extensions,
+let us illustrate structural schemas with two examples from the wild.
+
+### Examples from the wild
+
+(1) JEOPARDY_QUESTIONS1.json is a large file available from
+https://raw.githubusercontent.com/alicemaz/super_jeopardy/master/JEOPARDY_QUESTIONS1.json
+
+Here is the structural schema of the objects as inferred by the schema inference engine schema.jq:
+
+{
+  "air_date": "string",
+  "answer": "string",
+  "category": "string",
+  "question": "string",
+  "round": "string",
+  "show_number": "string",
+  "value": "string"
+}
+
+(2) citylots.json
+(https://raw.githubusercontent.com/zemirco/sf-city-lots-json/master/citylots.json)
+has the following structural schema as inferred by schema.jq
+
+{
+  "type": "string",
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              "JSON"
+            ]
+          ]
+        ],
+        "type": "string"
+      },
+      "properties": {
+        "BLKLOT": "string",
+        "BLOCK_NUM": "string",
+        "FROM_ST": "string",
+        "LOT_NUM": "string",
+        "MAPBLKLOT": "string",
+        "ODD_EVEN": "string",
+        "STREET": "string",
+        "ST_TYPE": "string",
+        "TO_ST": "string"
+      },
+      "type": "string"
+    }
+  ]
+}
+
+Here the type "JSON" represents any JSON entity.
+
+
+## String-defined Types
+
+There are three kinds of string-defined types:
+
+1) Those that JESS itself defines, e.g. "integer".
+
+2) Those defined by regular expressions, possibly with modifiers,
+e.g. one could imagine a date type being defined as  "/^Date[(]0-9]+[)]$/".
+Types defined by regular-expressions are covered in the following subsection.
+
+3) User-defined types, as discussed in the section on "Customization" below.
+
+The built-in string-defined types include the basic JSON types:
+"null", "boolean", "number", "string", "object", "array"
+
+In addition, JESS defines the following string-defined types:
+
+"scalar" (i.e. any of the JSON scalars)
+"nonnull"
+(XSD):   "integer", "nonNegativeInteger", "positiveInteger", "token"
+(dates): "ISO8601Date"
+(other):
+"positive" (a subset of JSON numbers)
+"nonnegative" (a subset of JSON numbers)
+"numeric" (JSON strings for which `(tonumber|tostring) == .`
+"Z" (JSON strings of decimal digits, possibly with a leading "-")
+"N" (JSON strings of decimal digits that correspond exactly to the natural numbers: 1,2,3, ...)
+"constraint" (a JESS type)
+"JSON"   (the "top" of the type hierarchy, i.e. the catch-all type)
+
+Note that "integer" is a subtype of "number" and therefore does not
+include string representations of integers.  A JSON number is regarded
+as an "integer" if it is equal to its floor, so that e.g.
+
+   1.0E100 :: "integer"
+
+### Regex-defined Types
+
+JESS allows types to be defined by regular expressions.
+
+In the prelude, that is, in the JSON document that serves to support
+user-defined named types in a JESS schema, if a new type is defined by
+a JSON string, then that string is regarded as a regular expression (without
+modifiers), and the new type is the set of JSON strings matching that
+regular expression.  For an example and further details, see the
+section on "Customization".
+
+In other contexts, one can define unnamed types using a regular
+expression, possibly with a modifier, using the conventional
+"/REGEX/MOD" format, where MOD is a selection of the allowed
+single-character modifiers, currently m, i and x.
+
+In the simplest case, a JSON string of the form "/REGEX/" defines the
+set of all strings matching the regular expression defined by REGEX.
+
+For example, the JSON string "/^[0-9]{5}$/" might be chosen to define
+a US zip code type, and an array of such zip codes could be specified
+by the type expression:
+
+    [ "/^[0-9]{5}$/" ]
+    
+More generally, any JSON string of the form "/REGEX/MOD", where MOD
+is zero or more of the allowed modifiers, defines the set of all
+strings for which the jq filter `test("REGEX"; "MOD")` evaluates to true.
+
+Note that, in JESS, the strings defining regular expressions must be
+JSON strings.  Thus to express the regex for an optional literal
+period, normally written as `\.?`, one would write `"\\.?"` or `"[.]?"`,
+or if the context requires `"/\\.?/"` or `"/[.]?/"`.
+
+
+## Extensions
+To support the specification of conditions which cannot be expressed
+using purely structural schemas, JESS introduces two additional constructs:
+
+* "union types" are denoted by arrays of the form ["+", ...]
+  and represent the union of the types specified by ....
+
+  E.g. ["+", "null", "integer"] represents the set consisting of null
+  and the numeric integers.  This notation is necessary because
+  `["null, "integer"]` is an array type.
+
+* "intersection types", also known as "conjunction constraints", have
+  the form ["&", ...]  and represent the collection of entities that
+  satsify all the specified constraints.
+  
+  E.g. if the ordering of keys within an object is important,
+  one could use the following expression:
+
+   ["&", {"schema": {"id": "integer", "name": "string" },
+       {"keys_unsorted": ["id","name"] } ]
+
+The following subsection gives further details about conjunction
+constraints but it is worth emphasizing here that, as illustrated in
+the preceding example, top-level objects within an ESS conjunction
+constraint are interpreted as constraint objects, not structural
+specifications.
+
+### Conjunction Constraints
+
+Conjunction constraints are written as a JSON array whose first
+element is `"&"`. The items in the array after the first are interpreted as
+constraints all of which must be satisifed.
+
+JSON objects within JESS Conjunction Constraints are interpreted as
+constraints rather than as structural schemas.  For example,
+to specify the type consisting of the range of integers from 0 to 10
+inclusive, one could write:
+
+  [ "&", "integer", {"min": 0, "max": 10} ]
+
+A conjunction constraint can also be used to specify a single constraint,
+e.g. to specify an enumeration type, one could write:
+
+  ["&", {"enumeration": ["yes", "no", "NA"]}]
+
+Thus to specify an array of "Y" or "N" strings, the following schema would
+suffice:
+
+  [ ["&", {"enumeration": ["Y", "N"]} ]
+
+### Object-defined Constraints
+
+JSON objects appearing in a `conjunction constraint` specify
+constraints declaratively. The constraint may apply to the value under
+consideration, or to all the values produced by a filter specified
+using the "forall" key, as discussed in the next section on pipelines.
+
+A third possibility is to define a constraint in terms
+of the set of distinct values formed by applying
+a filter.  This third possibility is discussed and illustrated
+in the section on Referential Integrity Constraints.
+
+### Pipelines
+Sometimes a constraint on a value can be expressed most simply as a
+constraint on a derived value. For example, to define all the
+strings for which the uppercased first letter is "Y" or "N", the
+constraint could be written in JESS as follows:
+
+   ["&", "string", {"forall": "first|ascii_upcase", "enumeration": ["Y", "N"]}]
+
+This can be read: if $x is the value under consideration, then for it
+to satisfy the constraints, it must be a JSON string, and the value of
+the jq expression ($x|first|ascii_upcase) must be one of the items in the
+specified enumeration.
+
+The reason for using the name "forall" is as follows:
+
+The string specified as the value of the "forall" key defines a filter
+that is similar to a jq filter.  In particular, it is processed from
+left to right, and may produce any number (zero or more) of values.
+The constraint is deemed to be satisfied as a whole if the constraint
+holds for all these values.  In particular, it holds if the pipeline
+produces an empty stream.
+
+The filter may include accessors such as `.[foo]` where
+`foo` stands for a key name, even if the key name contains
+special characters, even quotation marks or square brackets.
+There is no possibility of ambigity in JESS because of the strict
+rules regarding the formation of valid JESS pipelines.
+
+If a pipeline is specified as a string, it is split into
+pipe-delimited components naively.  Therefore,
+if an argument to a filter contains a pipe character,
+the pipeline must instead be specified by an
+object of the form {"pipeline": [ "string"} },
+that is by an object with an array-valued key named "pipeline",
+each item of which is interpreted as a single filter.
+
+For example, to impose a requirement on a string of hyphen-separated
+values that each value be lowercase, we could write the constraint as
+follows:
+
+   ["&", "string", { "forall": "splits(-)",  "ascii_downcase": true } ]
+
+Notice that the argument to `splits` can be specified without the normally
+required escaped double-quotation marks.
+
+For pipe-separated values, we would have to use an object-defined
+pipeline:
+
+   ["&", "string", { "forall": {"pipeline": ["splits(|)" ]},  "ascii_downcase": true } ]
+
+
+#### Pipeline Primitives
+
+The following primitives have the same semantics as in jq:
+
+. 
+..
+.[]
+add
+ascii_downcase
+ascii_upcase
+debug
+keys
+fromjson
+keys
+length
+max
+min
+not
+objects
+paths
+scalars
+sort
+strings
+tojson
+tonumber
+tostring
+to_entries
+type
+unique
+values
+
+Additional JESS primitives are as follows:
+
+`first` has the semantics of the jq expression:
+  if type == "string" then .[0:1] else first end
+`last` has the semantics of the jq expression:
+  if type == "string" then .[0:1] else first end
+`nonnull` has the semantics of the jq expression:
+   select(. != null)
+`integers` has the semantics of the jq expression
+  select( type=="number" and . == floor)
+`numbers` has the semantics of the jq expression
+  select( type=="number" )
+  
+`.[X]` has the semantics of the jq expression .[X] if
+  X is an integer and if the input at that point is an array;
+  otherwise it has the semantics of the jq expression .["X"]
+  provided X has non-zero length.
+
+So to access the value at a key named "a - b", you would
+just write `.[a - b]`, without any outer quotation marks.
+Similarly, to access the key "0" in an object, you
+would write .[0] rather than .["0"].
+  
+If PRIM is any of the above primitives, then 'PRIM[]' is also allowed
+and is just an abbreviation of `PRIM|.[]`.  Similarly for PRIM[][],
+PRIM[][][], and so on.
+
+Bonus:
+
+The following functions can also be included in a pipeline.
+If any of the arguments contain a pipe-character, then
+an object-defined pipeline should be used.
+
+`sub(re;s)`
+`sub(re;s;flags)`
+`gsub(re;s)`
+`gsub(re;s;flags)`
+`splits(re)` 
+
+Except in case of ambiguity, the quotation marks normally
+required for the arguments may all be dropped, e.g. one
+may write `"sub(a;A)"` as shorthand for `"sub(\"a\";\"A\")"`,
+and "sub( a ;A)" as shorthand for `:sub(\" a \";\"A\")".
+
+If the arguments contain any semicolons or double-quotation
+marks, then they should all be quoted as for JSON strings.
+
+Notes:
+1) `FOO|.[BAR]` cannot be abbreviated to `FOO[BAR]' or `FOO.BAR`.
+
+2) When using the ".[key]" notation to access the value at a key,
+be careful not to add any spaces that are not actually part of the key name.
+
+### Illustrations
+
+#### 2x2 numeric matrices
+
+By the set of 2x2 numeric matrices we mean the set of arrays
+consisting of two numeric arrays, each of length 2:
+  
+  ["&", [["number"]], {"length":2}, {"forall": ".[]|length", "equal": 2 }]
+
+#### nxn matrices of 0s and 1s
+
+By an nxn matrix we mean an array of arrays, such that the lengths of
+the component arrays must be the same as the length of the top-level
+array.  This can be expressed using `setof` and
+`equals_setof`. Specifically, to specify an nxn matrix of 0s and 1s,
+we could write:
+  
+  ["&", [[0,1]], {"setof": ".[]|length", "subsetof": "length"} ]
+
+### Specifying JSON Objects
+
+In general, when specifying the schema of a JSON object, one may wish to specify:
+-- its exact set of keys; or
+-- the minimal set of keys it must have; or
+-- the maximal set of keys it may have.
+
+Here are examples of these three types of specifications expressed in JESS:
+
+(exact)                  {"id": "integer", "name": "string" },
+(minimal) ["&", {"::>=": {"id": "integer", "name": "string" }}]
+(maximal) ["&", {"::<=": {"id": "integer", "name": "string" }}]
+
+
+## Specifying Within-Document Referential Integrity Constraints
+
+Suppose the JSON document under consideration has the basic structure:
+
+ {"objects": [ "object" ],  "relations: [ "array" ] }
+
+where the objects all have an integer-valued id, and the relationships
+are defined by arrays that include those ids.
+
+The obvious integrity constraint would then be that all the integers mentioned
+in the relation should correspond to one of the ids:
+
+ ["&", {"setof": ".[relations][][]|integers",  "subsetof": ".[objects][]|.[id]"}]
+
+For example:
+
+ {"objects": [{"id": 1, "name": "A"}, "{id":2, "name": "B"},  {"id": 3, name: "C"} ],
+  "relations": [[1,2], [2,3]]
+ :: ["&", {"setof": ".[relations][][]|integers",
+             "subsetof": ".[objects][]|.[id]"}] )
+
+This can be read as: the set of integers in the `relations` array
+must be a subset of the set of values of the id keys in the `objects`
+array.
+
+Notice that both the "setof" and "subsetof" strings within the object
+constraint are JESS pipelines.  They are both evaluated with respect
+to the input to `conforms_to`.
+
+## Customization
+
+JESS allows additional named types to be defined. This is done by
+specifying their semantics in one or more JSON objects, which together
+are known as the prelude. Here is an example of a valid JESS prelude:
+
+{
+  "metadata": {"Version 1.0"},
+   "types" {
+     "X:Date": "^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])([.,][0-9]+)?(Z)?$",
+     "X:md5": "^[a-f0-9]{32}$",
+     "X:UnitInterval": ["&", {">=": 0.0, "<=": 1.0}]
+   }
+}
+
+Here X:Date and X:md5 are defined by regular expressions in the obvious way,
+and X:UnitInterval is defined using a JESS conjunction constraint.
+
+Notes:
+(*) No prelude need be specified.
+(*) JESS string types cannot be redefined.
+(*) It is recommended that new types defined in the prelude be named with a colon (":") as illustrated. 
+(*) To add a new named type based on a regular expression with modifies, follow this example
+
+  "types": {
+    "English:DayOfWeek": ["+", 
+      "ri:^sun(day)?$",
+      "ri:^mon(day)?$",
+      "ri:^tue(sday)?$",
+      "ri:^wed(nesday)?$",
+      "ri:^thu(rsday)?$",
+      "ri:^fri(day)?$",
+      "ri:^sat(urday)?$" 
+   ]
+  }
+    
+
+The definition of a prelude may be spread amongst multiple files.
+Each file should specify one JSON object as illustrated above. A particular
+named-type can appear in more than one of these prelude objects so
+so long as all the definitions of a particular type are the same.
+
+See the section on JESS.jq for further details about how to specify a
+prelude to the validator.
+
+## Modularity
+
+Modularity can be achieved by using multiple prelude documents
+and/or multiple JESS schemas.  Typically, there will be a "master'
+schema together with additional JSON documents.
+
+For example, the structural schema shown above for the JEOPARDY
+document could serve as the master schema, with additional
+schemas for each top-level key.  Alternatively, a similar
+master schema with user-defined named types could be
+used, with the modularity devolved to the preludes.
+
+For example, if the subsidiary schema approach were
+taken using the above structural schema for the JEOPARDY data
+as the master schema, the schema for `category` could
+be specified as illustrated by this example:
+
+["&", { "forall"" ".[category]", "ascii_upcase": true} ]
+
+This specifies that "category" values must not contain any lower-case ASCII
+characters.
+
+
+## Metadata and Versioning
+
+The key names "metadata", "version", and "JESS" are reserved for
+user-specified data in JESS preludes and JESS Conjunction objects.  It
+is recommended that the version of JESS against which a schema is
+written is specified in the "JESS" field, so that one might see:
+
+   ["&", {"version": "1.0", "JESS": "0.0.1" }]
+
+
+## Part 2: JESS Syntax Summary
+
+JESS type expressions, t, are defined recursively as follows:
+
+1) t may be a string-defined type, such as "number", "boolean",
+   "integer", etc, as previously described;
+2 ) t may be a type defined by a regular-expression, possibly with a modifier;
+3) t may also be any JSON number, or the JSON values `true`, `false`, or `null`;
+4) t may also be a  JSON object specifying the allowed keys and the
+   types of their values (see "Specifying JSON Objects");
+5) t may also be a JSON array:
+   if the first element is "+", the array should be a JESS Union;
+   if the first element is "&", the array should be a JESS Conjunction;
+   if the first element is "if", the array should be a JESS Conditional;
+   otherwise, it should be a JESS Array Schema;
+6) a JESS Union is a JSON array in which each item after the first is a JESS
+   type expression;
+7) a JESS Conjunction is a JSON array in which each item after the
+first is a JESS type expression, with the understanding that JSON
+objects at the top level are to be understood as JESS Contraint
+Objects;
+8) a JESS Array Schema is an array of JESS type expressions, and signifies
+ an array in which each item conforms to at least one of the JESS type
+ expressions.
+9) a JESS Constraint Object is a JSON object specifying a set of constraints,
+   as described in the APPENDIX;
+
+JESS Constraint Objects may only occur as top-level entries in a JESS
+Conjunction, and JSON objects at the top-level of JESS
+Conjunctions are all interpreted as JESS Constraint Ojbects.
+
+
+## Part 3: Examples
+
+(i) 1 | conforms_to( [ "&", "integer",  {"min":1} ] ) #=> true
+
+(ii) The input is an array of integers:
+    [1,2] | conforms_to( ["integer"] ) 
+
+(iii) The input is an array of length 2 containing integers and/or booleans
+    [false, 1] | conforms_to( ["&", {"length": 2}, ["integer", "boolean"] ] )
+    
+
+## APPENDIX: Constraint Object Semantics
+
+A JESS Constraint Object is simply a JSON object
+that serves to define one or more constraints.
+
+JSON objects are only interpreted as constraint objects
+within a Conjunction Constraint.
+
+Let $c be a JESS constraint object and $in be the value under
+consideration.  Then $in :: $c if and only if $in passes all the tests
+specified by $c.
+
+If $c contains a key named "forall" with a value $p, then if $p is
+non-null, it should be a string consisting of pipe-delimited
+specifications of filters to be applied from left-to-right to the value
+under consideration. The constraint as a whole is regarding as being satisifed
+if the constraint holds for all the values produced by the pipeline.
+
+As an example, consider this JESS schema:
+
+  ["&",
+   "string",
+   {"forall": "ascii_upcase", "enumeration": ["Mon", "Wed", "Fri"] } ]
+
+This requires that the JSON value under consideration, $in, must be a
+"string" and satisfy the constraint that `$in | ascii_upcase` be one
+of the enumerated strings.
+
+More formally, let $p be `$c.forall`.  If $p is non-null, it should be a
+pipe-delimited string as specified in the "Pipelines" section.
+
+The evaluation of `$in` relative to the pipeline $p takes place from left-to-right,
+where it is understood that if at any step an error condition is
+raised,  the result will be null, in effect causing a constraint violation.
+
+If $c contains a string-valued key named "setof", then the string is
+also interpreted as a JESS pipeline, and a set, $set, is formed as the
+array of distinct elements produced by the pipeline.  A constraint can
+then be defined by comparing this set to the set specified using
+.subsetof, .supersetof, and/or .equals_setof, all of which can be
+specified as an array or pipeline.
+
+For example, if the constraint object takes the form:
+
+  {"setof": PIPELINEA, "subsetof": PIPELINEB }
+
+then it will be satisfied if and only if the set formed by evaluating
+PIPELINEA is a subset of the set formed by evaluation PIPELINEB, it
+being understood that a set is regarded here as being a subset of itself.
+
+An example is given in the section on Referential Integrity Constraints.
+
+## Conditional Constraints
+
+If $c contains a key named "if", then the corresponding value should
+be a JESS type expression. If the input, $in, conforms to the .if
+type, then the constraint is only satisifed if the input also conforms
+to the .then constraint; otherwise, the constraint is only satisifed
+if the input conforms to the .else constraint.
+
+The basic idea can be gleaned from a couple of examples:
+
+     ["&", {"if": "number", "then": ["+", 0, 1]} ]
+     
+This can be read as requiring that if $in is a number, then it must either be 0 or 1.
+If  $in is not a number, it satisifes this particular constraint vacuously.
+
+Next, we consider a conditional constraint with an "else" key:
+
+     ["&", {"if": "number", "then": ["+", 0, 1], "else": "null" } ]
+
+This is a long-winded equivalent to the union type: ["+", 0, 1, null]
+
+### Formal Semantics of Conditional Constraints
+
+The definition of `$in | conforms_with_conditional($c))`
+where $c is a JSON object is:
+
+   $in
+   | if $c.if
+     then if conforms_to($c.if)
+             then $c.then and conforms_to($c.then)
+	     else false
+	     end
+     elif $c.else then conforms_to($c.else)
+     else true
+     end
+
+The other keys of significance in $c are as described in the
+following table, in which each line takes the form:
+
+`key: VALUE` is satisfied if CONDITION 
+
+where:
+
+- `{key: VALUE}` is a pair in the constraint object;
+-  if VALUE is specified as a JSON value, then the condition is only
+   checked if the supplied value is the value shown;
+-  if the "VALUE" is shown in uppercase, the name is a type hint, e.g.
+    ARRAY for a JSON array, and X for a an allowed JSON value
+-  `.` is the value being checked, and CONDITION is a jq expression
+   to be evaluated at `.`.
+- if CONDITION raises an error, then the constraint fails
+
+
+"::<=": OBJECT is satisfied if conforms_with_object_minimally(OBJECT)
+"::>=": OBJECT is satisfied if conforms_with_object_inclusively(OBJECT)
+"==": X is satisfied if  . == X
+"<=": X is satisfied if  . <= X
+">=": X is satisfied if  . >= X
+"!=" : X is satisfied if . != X
+
+add: X is satisfied if add == X
+and: ARRAY is satisfied if: . as $in | all(AND; . as $c | $in | conforms_to($c))
+ascii_downcase : BOOLEAN is satisfied if BOOLEAN == (. == ascii_downcase)
+ascii_downcase : CONJUNCTIONCONSTRAINT is satisfied if ascii_downcase | conforms_to(CONJUNCTIONCONSTRAINT)
+ascii_downcase : STRING is satisfied if  STRING ==  ascii_downcase)
+ascii_upcase : BOOLEAN is satisfied if BOOLEAN == (. == ascii_upcase)
+ascii_upcase : CONJUNCTIONCONSTRAINT is satisfied if ascii_upcase | conforms_to(CONJUNCTIONCONSTRAINT)
+ascii_upcase : STRING is satisfied if STRING == ascii_upcase
+base64: true is satisfied if . ==  try (@base64d | @base64) // false)
+conforms_to: SCHEMA is satisfied if conforms_to(SCHEMA)
+distinct: true is satisfied if (sort == unique)
+endswith:X is satisfied if endswith(X)
+enumeration: ARRAY is satisfied if (. as $in | any(ARRAY[]; . == $in))
+equal: X is satisfied if . == X
+first: X is satisfied if X ==  (if type == "string" then .[0:1] else first end)
+gsub: [REGEX, STRING, S ] is satisfied if gsub(REGEX;STRING) == S
+gsub: [REGEX, STRING, FLAGS, S ] is satisfied if gsub(REGEX;STRING; FLAGS) == S
+has: ARRAY is satisified if (. as $in | all(c.has[]; . as $key | $in | has($key)))
+has: STRING is satisfied if has(STRING)
+includes: OBJ conforms_with_object_inclusively(OBJ) # same as ::>=
+keys: ARRAY is satisfied if  ARRAY  | unique == keys
+keys_unsorted: ARRAY is satisfied if ARRAY == keys_unsorted
+last: X is satisfied if X ==  (if type == "string" then .[-2:-1] else last end)
+length: X is satisfied if length == X
+max: X is satisfied if . <= X
+maxExclusive: X is satisfied if . < X
+maxLength: X is satisfied if length <= X
+min: X is satisfied if X >= .
+minExclusive: X is satisfied if  . > X
+minLength: X is satisfied if length >= X
+notequal: X is satisfied if . != X
+oneof: ARRAY is satisfied if (. as $in | ARRAY | index($in))
+regex: REGEX is satisfied if:  (if c.modifier then test(REGEX; c.modifier) else test(REGEX)  end)
+schema: SCHEMA is satisfied if conforms_to(SCHEMA) # i.e. if . conforms to SCHEMA
+startswith:X is satisfied if startswith(X)
+sub -- similar to gsub
+test: OBJECT is satisfied if test(OBJECT.not) fails.
+test: REGEX is satisified if test(REGEX)
+unique: ARRAY is satisfied if  (sort == unique) and (. - ARRAY == [])
+unique: true is satisfied if (sort == unique)
+
+For clarity:
+regex: RE is satisfied -
+    if .modifier has been set to X and test(RE; X) evaluates to true; or
+    if .modifier has not been set, and test(RE) evaluates to true
+

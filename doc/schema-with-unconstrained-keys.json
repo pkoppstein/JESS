@@ -1,0 +1,23 @@
+{
+  "vv4sD32": {
+    "question": "Do you like dogs?",
+    "answers": [
+      "Yes",
+      "No"
+    ]
+  },
+  "df4sdIU": {
+    "question": "How about cats?",
+    "answers": [
+      "Maybe",
+      "Maybe not"
+    ]
+  },
+  "cbkle12": {
+    "question": "What do you prefer most?",
+    "answers": [
+      "Dogs",
+      "Cats"
+    ]
+  }
+}

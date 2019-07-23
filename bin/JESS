@@ -1,0 +1,171 @@
+#!/bin/bash
+# Copyright (C) 2019 peak@princeton.edu
+# License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported (CC BY-NC-SA 3.0)
+# See http://creativecommons.org/licenses/by-nc/3.0/
+# Attribution shall include the copyright notice above.
+
+# For help: $0 --help
+
+VERSION=0.0.1.2
+
+# Requires: jq
+
+# JSON Schema Validation using JESS.jq
+
+BN=$(basename "$0")
+PRELUDEFILE=
+VERBOSE=
+SCHEMA=schema.jess
+DIR=
+
+function die     { echo "$BN: $@" >&2 ; exit 1 ; }
+
+function help {
+cat <<EOF
+Syntax: $BN [OPTIONS] file ...
+
+where the specified files contain the JSON entities to be validated.
+It is assumed that these files contain valid JSON documents.
+
+A JESS Schema consists of a collection of JSON documents: an optional
+prelude, which defaults to the empty object, and one or more JSON
+documents that describe and/or define constraints on the entities to
+be validated.
+
+A prelude object, if specified, serves to extend the collection of
+named types that may be used in the other parts of the schema. The
+prelude may be specified either by a PATHNAME to a file or by a
+directory in which all files with the .prelude.json suffix are to be
+aggregated to produce a JESS prelude object.
+
+By default, the file schema.jess or else schema.json in the pwd
+is used as the schema.
+
+Options:
+
+-p                     # use prelude.json in the pwd as the sole prelude file
+--prelude PATHNAME     # a file, or directory in which all *.prelude.json files
+                         are to be interpreted as prelude files
+--schema PATHNAME      # a file, or a directory in which all *.jess files
+                         are to be interpreted as JESS schemas
+                       # default: schema.jess or else schema.json
+--dir PATH             # path to JESS.jq
+
+Example invocation:
+
+  $BN --prelude \$PREFIX.prelude.json --schema \$PREFIX.schema \$PREFIX.json
+
+EOF
+}
+
+while [ "$1" ]
+do case "$1" in
+      -h | --help ) help
+           exit
+           ;;
+      -v | --verbose ) VERBOSE=1
+           shift
+           ;;
+      -V | --version ) echo $BN version $VERSION
+           exit
+           ;;
+      -n | --dry-run ) TEST=1
+           shift
+           ;;
+      -p ) PRELUDE=prelude.json
+           shift
+	   ;;
+      --prelude ) PRELUDE="$2"
+           shift 2
+	   ;;
+      --schema ) SCHEMA="$2"
+           shift 2
+	   ;;
+      --dir )
+	   if [ ! -d "$2" ] ; then die Directory "$2" not found ; fi
+	   DIR="-L $2"
+           shift 2
+	   ;;
+      -  ) break
+           ;;
+      -* ) die "unknown option $1"
+           ;;
+      *  ) break
+           ;;
+  esac
+done
+
+# Establish a value for $SCHEMA:
+if [ -z "$SCHEMA" ] ; then
+  for f in schema.jess schema.json ; do
+     if [ -r $f ] ; then SCHEMA=$f ; break ; fi
+  done
+fi
+
+function checkSchemaDirectory {
+  local n
+  n=$(cd "$SCHEMA"; ls -1 *.jess | wc -l)
+  if [ $n -eq 0 ] ; then die "Schema directory has no *.jess files" ; fi
+}
+
+function checkPreludeDirectory {
+  local n
+  n=$(cd "$PRELUDE"; ls -1 *.prelude.json | wc -l)
+  if [ $n -eq 0 ] ; then die "Pprelude directory has no *.prelude.json files" ; fi
+}
+
+if [ -d "$SCHEMA" ] ; then checkSchemaDirectory
+elif [ ! -r "$SCHEMA" ] ; then die "Cannot read schema file named $SCHEMA"
+fi
+
+# Possibilities:
+# f  no prelude    one schema file
+# d     "          schema dir
+# pf one prelude   one schema
+# pd    "          schema dir
+# df many preludes one schema
+# dd    "          schema dir
+
+JQ="jq $DIR"
+		
+function f {
+  $JQ -n --argfile schema "$SCHEMA" '
+  include "JESS"; check' "${@}" 
+}
+
+function d {
+  $JQ -n --slurpfile schema <( cat "$SCHEMA"/*.jess ) '
+  include "JESS"; check_schemas' "${@}" 
+}
+
+function pf {
+  $JQ -n --argfile prelude "$PRELUDE" --argfile schema $SCHEMA '
+  include "JESS"; check' "${@}" 
+}
+
+function pd {
+  $JQ -n --argfile prelude "$PRELUDE" --slurpfile schema <( cat "$SCHEMA"/*.jess ) '
+  include "JESS"; check_schemas' "${@}" 
+}
+
+function df {
+  $JQ -n --slurpfile prelude <( cat "$PRELUDE"/*.prelude.json)  --argfile schema "$SCHEMA" '
+  include "JESS"; check'
+}
+
+function dd {
+  $JQ -n --slurpfile prelude <(cat "$PRELUDE"/*.prelude.json )  --slurpfile schema <( cat "$SCHEMA"/*.jess ) '
+  include "JESS"; check_schemas'
+}
+
+if [ -n "$VERBOSE" ] ; then set -x ; fi
+
+if [ -z "$PRELUDE" ] ; then
+  if [ -d "$SCHEMA" ] ; then d "${@}" ; else f "${@}" ; fi
+elif [ -d "$PRELUDE" ] ; then
+  checkPreludeDirectory
+  if [ -d "$SCHEMA" ] ; then dd "${@}" ; else df "${@}" ; fi
+else
+  if [ -d "$SCHEMA" ] ; then pd "${@}" ; else pf "${@}" ; fi
+fi
+

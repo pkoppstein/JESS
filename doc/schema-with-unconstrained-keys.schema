@@ -1,0 +1,7 @@
+["&", { "comment": "https://stackoverflow.com/questions/56768992/ajv-schema-validation-for-object-with-unknown-properties",
+        "forall": ".[]|debug",
+	"schema": "QA:",
+	 "old-schema": { "question": "string", "answers": [ "string" ] }
+
+  }
+]

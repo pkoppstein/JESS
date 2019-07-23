@@ -1,0 +1,14 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "comment": "JESS prelude for schema-with-unconstrained-keys.json"
+  },
+  "types": {
+    "QA:": {
+      "question": "string",
+      "answers": [
+        "string"
+      ]
+    }
+  }
+}
