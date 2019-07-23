@@ -98,23 +98,25 @@ the jq or JESS command-line.
 
 For help regarding the wrapper script, run `JESS -h`.
 
-An overview of the main functions provided by JESS.jq for conformance checking is given below. For details, see the documentation in the doc folder.
+An overview of the main functions provided by JESS.jq for conformance
+checking is given below. For details, see the documentation in the doc
+folder, or this repository's [Wiki](https://bitbucket.org/pkoppstein/jess/wiki).
 
 See [jq manual](https://stedolan.github.io/jq/manual/#Modules) for how to use jq modules in general.
 
 ### Using JESS.jq at the command-line
 
-With a single schema:
+####With a single schema:
 ~~~sh
 jq -n --argfile schema PATHNAME 'include "JESS"; check' INPUT.json ...
 ~~~
 
-# With single schema and one or more preludes:
+#### With single schema and one or more preludes:
 ~~~sh
 # jq -n --argfile schema PATHNAME --slurpfile PATHNAME 'include "JESS"; check' INPUT.json ...
 ~~~
 
-# With multiple schemas and one or more preludes:
+#### With multiple schemas and one or more preludes:
 ~~~sh
  jq -n --argfile schema PATHNAME --slurpfile PATHNAME 'include "JESS"; check_schemas'
 ~~~
