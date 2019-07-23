@@ -11,7 +11,10 @@ in which every schema mirrors the structure of its conforming documents.
 
 This repository contains:
 
-* a specification of the JESS language for JSON schemas
+* a specification of the JESS language for JSON schemas (also
+  available as the
+  [Wiki Home Page](https://bitbucket.org/pkoppstein/jess/wiki/Home) of
+  this repository
 * JESS.jq, a reference implementation of a conformance checker, written in [jq](https://stedolan.github.io/jq/) 
 * JESS, a wrapper script for JESS.jq.
 
@@ -21,11 +24,11 @@ This repository contains:
 * [Installation](#installation)
 * [Usage](#usage)
 * [API](#api)
-  * [check](#check)
-  * [check_schemas](#check_schemas)
-  * [check(stream)](#check_stream)
-  * [check_schemas(stream)](#check_schemas(stream))
-  *[conforms_to(schema)](#conforms_to_schema)
+** [check](#check)
+** [check_schemas](#check_schemas)
+** [check(stream)](#check_stream)
+** [check_schemas(stream)](#check_schemas(stream))
+**[conforms_to(schema)](#conforms_to_schema)
 * [Contributing](#contributing)
 * [License](#license)
 
@@ -54,8 +57,9 @@ These extensions include:
 * support for complex constraints, including referential integrity constraints, and recursive constraints;
 * user-defined named types, e.g. for different date formats.
 
-Modularity is supported by allowing both the prelude (in which user-defined named types are defined)
-and the schema proper to be written as multiple JSON documents in different files.
+Modularity is supported by allowing both the prelude (in which
+user-defined named types are defined) and the schema proper to be
+written as multiple JSON documents in different files.
 
 ## Installation
 
