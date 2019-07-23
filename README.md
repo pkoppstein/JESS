@@ -16,7 +16,7 @@ as the [Wiki Home Page](https://bitbucket.org/pkoppstein/jess/wiki/Home) of
 this repository)
 * JESS.jq, a reference implementation of a conformance checker, written in [jq](https://stedolan.github.io/jq/) 
 * JESS, a wrapper script for JESS.jq
-* supporting documentation.
+* supporting documentation and test cases.
 
 ## Table of Contents
 
@@ -29,6 +29,7 @@ this repository)
     * [check(stream)](#check_stream)
     * [check_schemas(stream)](#check_schemas(stream))
     * [conforms_to(schema)](#conforms_to_schema)
+* [Experimental Aspects of the JESS Language](#experimental-aspects-of-the-jess-language)
 * [Contributing](#contributing)
 * [License](#license)
 
@@ -196,7 +197,7 @@ conforms_to(schema)
 For each input, `conforms_to(schema)` simply emits true or false depending on whether that input
 conforms to the given schema entity.
 
-# Experimental Aspects of the JESS Schema Language
+## Experimental Aspects of the JESS Language
 
 The definitions of the following named types are experimental and subject to change:
 
