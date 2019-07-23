@@ -1,7 +1,7 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.2",
+  "version": "0.0.1.3",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
@@ -255,9 +255,9 @@ def conforms_to(t; exactly):
     if $c.if
     then if conforms_to($c.if)
          then $c.then and conforms_to($c.then)
-	 else false
-         end
-    elif $c.else then conforms_to($c.else)
+         elif $c.else then conforms_to($c.else)
+         else true
+	 end
     else true
     end;
 
