@@ -20,18 +20,18 @@ this repository)
 
 ## Table of Contents
 
-* [Highlights](#highlights)
-* [Installation](#installation)
-* [Usage](#usage)
-* [API](#api)
-    * [check](#check)
-    * [check_schemas](#check_schemas)
-    * [check(stream)](#check_stream)
-    * [check_schemas(stream)](#check_schemas(stream))
-    * [conforms_to(schema)](#conforms_to_schema)
-* [Experimental Aspects of the JESS Language](#experimental-aspects-of-the-jess-language)
-* [Contributing](#contributing)
-* [License](#license)
+* [Highlights](#markdown-header-highlights)
+* [Installation](#markdown-header-installation)
+* [Usage](#markdown-header-usage)
+* [API](#markdown-header-api)
+    * [check](#markdown-header-check)
+    * [check_schemas](#markdown-header-check_schemas)
+    * [check(stream)](#markdown-header-check_stream)
+    * [check_schemas(stream)](#markdown-header-check_schemas(stream))
+    * [conforms_to(schema)](#markdown-header-conforms_to_schema)
+* [Experimental Aspects of the JESS Language](#markdown-header-experimental-aspects-of-the-jess-language)
+* [Contributing](#markdown-header-contributing)
+* [License](#markdown-header-license)
 
 ## Highlights
 
