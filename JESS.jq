@@ -1,7 +1,7 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.3",
+  "version": "0.0.1.4",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
@@ -12,7 +12,7 @@ module {
 };
 
 # JESS - JSON Extended Structural Schemas
-# Date: 2019-07-16
+# Date: 2019-07-22
 # For documentation, see JESS.txt
 
 # Requires: jq 1.5 or higher
@@ -30,7 +30,10 @@ module {
 # jq --argfile schema MYSCHEMA.JSON 'include "JESS"; check' STREAM_OF_JSON_DOCUMENTS
 # jq --argfile schema MYSCHEMA.JSON --argfile prelude PRELUDE.json 'include "JESS"; check' STREAM_OF_JSON_DOCUMENTS
 
-# WARNING: The specification of the "ISO8601Date" type is subject to change.
+# WARNING: The specification of the named types "base64" and "ISO8601Date" is subject to change.
+
+# NEWS:
+# 1.5 | conforms_to(1.5)
 
 #################################
 
@@ -250,7 +253,7 @@ def conforms_to(t; exactly):
     | all(keys[]; . as $k | (t | has($k))) and
       all(keys[]; . as $k | $in[$k] | conforms_to(t[$k]));
 
-  # [COND, THEN, ELSE]
+  # {if: TYPE, then: TYPE, else: TYPE}
   def conforms_with_conditional($c):
     if $c.if
     then if conforms_to($c.if)
@@ -274,7 +277,7 @@ def conforms_to(t; exactly):
       # ("conforms_with_constraint entry: \(.)" | debug) as $debug |
       
       when (c.if; conforms_with_conditional(c))
-      and when( c.length; length == c.length)
+      and when(c.length; length == c.length)
       and when(c.schema; conforms_to(c.schema))
       and when(c.minLength; length >= c.minLength)
       and when(c.maxLength; length <= c.maxLength)
@@ -411,7 +414,7 @@ def conforms_to(t; exactly):
   if type == t then true
   elif (t == true or t == false or t == null) then . == t      # boolean values and null can represent themselves
   elif t == "number" or t == "boolean" or t == "string" or t == "object" or t == "array" or t == "null" then type == t
-  elif type == "number" and floor == . and t == . then true  # integers represent themselves
+  elif (t | type) == "number" then t == .                      # numbers also represent themselves
   elif t == "JSON" then true
   elif t == "nonnull" then . != null
   elif t == "nonnegative" then (type == "number" and . >= 0)
