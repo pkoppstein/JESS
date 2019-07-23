@@ -11,10 +11,9 @@ in which every schema mirrors the structure of its conforming documents.
 
 This repository contains:
 
-* a specification of the JESS language for JSON schemas (also
-  available as the
-  [Wiki Home Page](https://bitbucket.org/pkoppstein/jess/wiki/Home) of
-  this repository
+* a specification of the JESS language for JSON schemas (also available
+as the [Wiki Home Page](https://bitbucket.org/pkoppstein/jess/wiki/Home) of 
+this repository)
 * JESS.jq, a reference implementation of a conformance checker, written in [jq](https://stedolan.github.io/jq/) 
 * JESS, a wrapper script for JESS.jq.
 
@@ -28,15 +27,13 @@ This repository contains:
 ** [check_schemas](#check_schemas)
 ** [check(stream)](#check_stream)
 ** [check_schemas(stream)](#check_schemas(stream))
-**[conforms_to(schema)](#conforms_to_schema)
+** [conforms_to(schema)](#conforms_to_schema)
 * [Contributing](#contributing)
 * [License](#license)
 
 ## Highlights
 
-JESS extends the simplest possible all-JSON structural schema language
-in which the JSON schema for a set of documents is a single JSON
-document such that:
+JESS extends the simplest possible all-JSON structural schema language in which the JSON schema for a set of documents is a single JSON document such that:
 
 * JSON objects are specified by objects, or generically by "object"
 * JSON arrays are specified by arrays, or generically by "array"
@@ -46,8 +43,8 @@ document such that:
 * "scalar" includes all scalars
 * "JSON" is the type of all JSON documents.
 
-The main extensions follow naturally or are based closely on the purely functional components of the
-[jq](https://stedolan.github.io/jq/) language.
+The main extensions follow naturally or are based closely on the purely functional components
+of the [jq](https://stedolan.github.io/jq/) language.
 
 These extensions include:
 
@@ -66,6 +63,7 @@ written as multiple JSON documents in different files.
 Running the conformance checker requires [jq](https://stedolan.github.io/jq/) version 1.5 or newer.
 
 It is recommended that the JESS directory be placed in your ~/.jq/ directory so that jq will automatically be able to find it.
+
 One way to do so is to check out this repository to directory `~/.jq/`:
 
 ~~~sh
@@ -76,8 +74,7 @@ hg clone ssh://hg@bitbucket.org/states50/nominate"
 ln -s ~/.jq/JESS/bin/JESS ~/bin
 ~~~
 
-Or use the "Clone" button, or use the "Downloads" link
-to dowload the .zip file to ~/.jq/
+Or use the "Clone" button, or use the "Downloads" link to dowload the .zip file to ~/.jq/ 
 
 Another option would be to download the JESS.jq and JESS files individually, e.g.:
 
@@ -121,8 +118,7 @@ jq -n --argfile schema PATHNAME 'include "JESS"; check' INPUT.json ...
  jq -n --argfile schema PATHNAME --slurpfile PATHNAME 'include "JESS"; check_schemas'
 ~~~
 
-You may also wish to put your jq commands in a file, say check.jq that begins with an include or import statement.
-Here is an example of such a file:
+You may also wish to put your jq commands in a file, say check.jq that begins with an include or import statement. Here is an example of such a file:
 
 ~~~sh
 include "JESS" {search: "path/to/module"};
@@ -157,13 +153,15 @@ jq -n --slurpfile $PREFIX.prelude.json --slurpfile schema $PREFIX.schema 'includ
 The "doc" directory includes a simple example combining a preface, a
 schema, and a conforming JSON document. Assuming JESS.jq is in an
 appropriate location and that a bash or similar shell is available,
-then one way to check conformance would be to run the
-JESS script along the following lines:
+then one way to check conformance would be to run the JESS script
+along the following lines:
 
+~~~sh
  cd JESS
  PREFIX=doc/schema-with-unconstrained-keys
  ./JESS --prelude $PREFIX.prelude.json --schema $PREFIX.schema $PREFIX.json
-
+ ~~~
+ 
 ## jq functions
 
 The "check" family of jq functions provide details about non-conforming entities, such as the corresponding file name.
