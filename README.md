@@ -28,7 +28,7 @@ this repository)
     * [check(stream)](#check_stream)
     * [check_schemas(stream)](#check_schemas(stream))
     * [conforms_to(schema)](#conforms_to_schema)
-    * [Contributing](#contributing)
+* [Contributing](#contributing)
 * [License](#license)
 
 ## Highlights
