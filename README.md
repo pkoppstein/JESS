@@ -137,19 +137,6 @@ jq -f check.jq INPUT.json ...
 
 ### Examples
 
-Using the prelude, schema, and JSON data file in the doc directory:
-
-~~~sh
-PREFIX=schema-with-unconstrained-keys.schema
-JESS --prelude $PREFIX.prelude.json --schema $PREFIX.schema $PRELUDE.json
-~~~
-
-or:
-~~~sh
-PREFIX=schema-with-unconstrained-keys.schema
-jq -n --slurpfile $PREFIX.prelude.json --slurpfile schema $PREFIX.schema 'include "JESS"; check' $PRELUDE.json 
-~~~
-
 The "doc" directory includes a simple example combining a preface, a
 schema, and a conforming JSON document. Assuming JESS.jq is in an
 appropriate location and that a bash or similar shell is available,
@@ -160,7 +147,15 @@ along the following lines:
  cd JESS
  PREFIX=doc/schema-with-unconstrained-keys
  ./JESS --prelude $PREFIX.prelude.json --schema $PREFIX.schema $PREFIX.json
- ~~~
+~~~
+
+Alternatively, one could use jq directly, along these lines:
+
+~~~sh
+PREFIX=doc/schema-with-unconstrained-keys
+jq -n --slurpfile prelude $PREFIX.prelude.json --slurpfile schema $PREFIX.schema 'include "JESS"; check' $PREFIX.json 
+~~~
+
  
 ## jq functions
 
