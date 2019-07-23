@@ -33,6 +33,8 @@ jq -nc $LOCATION 'include "JESS";
   def fail: [
     [ "correctly determined failure", "string"],
 
+    [ 1,                              true],
+    [ 1.5,                            2],
     [ {"a": [1,2,3,4]},               {a: [[], {unique: [1,2,3]}]}],
     [ {"answer": "YES"},              {"answer": ["&", {"enumeration": ["yes", "no", "NA"]}]} ],
 
@@ -66,6 +68,7 @@ jq -nc $LOCATION 'include "JESS";
   # An array of [INPUT, CONSTRAINT] pairs that are expected to pass
   def pass: [
     [true,              "correctly determined failure"],
+    [ 1.5,              1.5                                    ],
     [ [1,2],            ["integer"]                            ],   # ARRAY OF INTEGER
     [ 1,                [[], {"min":1}, "integer", "number"]   ],   # CONJUNCTION
     [ 1,                [[], {"and": ["integer", "number"]}]   ],   # CONJUNCTION
