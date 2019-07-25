@@ -1,4 +1,4 @@
-2019.07.19 Version 0.0.1.1
+2019.07.24 Version 0.0.1.5
 
 JESS.txt
 
@@ -327,7 +327,7 @@ and the numeric integers.  This notation is necessary because
 `["null, "integer"]` is an array type.
 
 * "intersection types", also known as "conjunction constraints", have
-  the form `["&", ...]`  and represent the collection of entities that
+  the form `["&", ...]` and represent the collection of entities that
   satisfy all the specified constraints.
   
 E.g. if the ordering of keys within an object is important,
@@ -565,7 +565,7 @@ are defined by arrays that include those ids.
 The obvious integrity constraint would then be that all the integers mentioned
 in the relation should correspond to one of the ids:
 
-` ["&", {"setof": ".[relations][][]|integers",  "subsetof": ".[objects][]|.[id]"}]`
+`["&", {"setof": ".[relations][][]|integers",  "subsetof": ".[objects][]|.[id]"}]`
 
 For example:
 ```
@@ -591,7 +591,7 @@ are known as the prelude. Here is an example of a valid JESS prelude:
 ```
 {
   "metadata": {"Version 1.0"},
-   "types" {
+   "types": {
      "X:Date": "^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])([.,][0-9]+)?(Z)?$",
      "X:md5": "^[a-f0-9]{32}$",
      "X:UnitInterval": ["&", {">=": 0.0, "<=": 1.0}]
@@ -603,20 +603,21 @@ Here "X:Date" and "X:md5" are defined by regular expressions in the obvious way,
 and "X:UnitInterval" is defined using a JESS conjunction constraint.
 
 Notes:
-(*) No prelude need be specified.
-(*) JESS string types cannot be redefined.
-(*) It is recommended that new types defined in the prelude be named with a colon (":") as illustrated. 
-(*) To add a new named type based on a regular expression with modifies, follow this example
+* No prelude need be specified.
+* JESS string types cannot be redefined.
+* **New types defined in the prelude should be named with a colon** (":") as illustrated.
+* To add a new named type based on a regular expression with modifies, follow this example:
+
 ```
   "types": {
-    "English:DayOfWeek": ["+", 
-      "ri:^sun(day)?$",
-      "ri:^mon(day)?$",
-      "ri:^tue(sday)?$",
-      "ri:^wed(nesday)?$",
-      "ri:^thu(rsday)?$",
-      "ri:^fri(day)?$",
-      "ri:^sat(urday)?$" 
+    "English:DayOfWeek": ["+",
+      "/^sun(day)?$/",
+      "/^mon(day)?$/",
+      "/^tue(sday)?$/",
+      "/^wed(nesday)?$/",
+      "/^thu(rsday)?$/",
+      "/^fri(day)?$/",
+      "/^sat(urday)?$/" 
    ]
   }
 ```    
@@ -697,10 +698,9 @@ Objects;
 9) a JESS Constraint Object is a JSON object specifying a set of constraints,
    as described in the APPENDIX;
 
-JESS Constraint Objects may only occur as top-level entries in a JESS
-Conjunction, and JSON objects at the top-level of JESS
-Conjunctions are all interpreted as JESS Constraint Objects.
-
+JSON objects at the top-level of JESS Conjunctions are all interpreted
+as JESS Constraint Objects, which may only occur there or as the
+value of an "ifcond" in a Constraint Object.
 
 # Examples
 
@@ -778,32 +778,50 @@ if the input conforms to the .else constraint.
 
 The basic idea can be gleaned from a couple of examples:
 
-`     ["&", {"if": "number", "then": ["+", 0, 1]} ]`
-     
+`["&", {"if": "number", "then": ["+", 0, 1]} ]`
+
 This can be read as requiring that if $in is a number, then it must either be 0 or 1.
 If  $in is not a number, it satisifes this particular constraint vacuously.
 
 Next, we consider a conditional constraint with an "else" key:
 
-`     ["&", {"if": "number", "then": ["+", 0, 1], "else": "null" } ]`
+`["&", {"if": "number", "then": ["+", 0, 1], "else": "null" } ]`
 
 This is a long-winded equivalent to the union type: `["+", 0, 1, null]`
+
+### "ifcond"
+
+As a kind of syntactic sugar, conditional constraints of the form:
+
+`    {"if": [&, CONDITION], ...}`
+
+can be written:
+
+`    {"ifcond": CONDITION, ...}`
+
+Example:
+
+`{"name":"X", "id": 0} :: [ "&", {ifcond: {"has": "name"}, then: {"name": "string", "id": "integer"}} ]`
+
+It is not an error to include both "if" and "ifcond" keys, but
+in that case, you will probably not want to specify an "else" key.
 
 ## Formal Semantics of Conditional Constraints
 
 The definition of `$in | conforms_with_conditional($c))`
-where $c is a JSON object is:
+where $c is a JSON object with an "if" key but without an "ifcond" key is:
 ```
    $in
-   | if $c.if
-     then if conforms_to($c.if)
-             then $c.then and conforms_to($c.then)
-	     else false
-	     end
+   | if conforms_to($c.if)
+     then conforms_to($c.then)
      elif $c.else then conforms_to($c.else)
      else true
      end
 ```
+The definition is similar if there is an "ifcond" key but no "if"
+key.  If both "if" and "ifcond" keys are present, then both
+tests must yield true for the condition to be satisfied.
+
 The other keys of significance in $c are as described in the
 following table, in which each line takes the form:
 
@@ -917,6 +935,7 @@ unique: true is satisfied if (sort == unique)
 For clarity:
 
 `regex: RE` is satisfied -
+
 - if .modifier has been set to X and test(RE; X) evaluates to true; or
 - if .modifier has not been set, and test(RE) evaluates to true
 

@@ -1,7 +1,7 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.4",
+  "version": "0.0.1.5",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
@@ -34,6 +34,7 @@ module {
 
 # NEWS:
 # 1.5 | conforms_to(1.5)
+# .ifcond # can be specified as an alternative to, or in addition to, .if
 
 #################################
 
@@ -253,17 +254,19 @@ def conforms_to(t; exactly):
     | all(keys[]; . as $k | (t | has($k))) and
       all(keys[]; . as $k | $in[$k] | conforms_to(t[$k]));
 
-  # {if: TYPE, then: TYPE, else: TYPE}
+  # {if: TYPE, ifcond: COND, then: TYPE, else: TYPE}
   def conforms_with_conditional($c):
-    if $c.if
-    then if conforms_to($c.if)
-         then $c.then and conforms_to($c.then)
-         elif $c.else then conforms_to($c.else)
-         else true
-	 end
-    else true
-    end;
+    def conforms_with_constraint($constraint): conforms_to(["&", $constraint]);
 
+    def check($cond):
+       if $cond
+       then conforms_to($c.then)
+       elif $c.else then conforms_to($c.else)
+       else true  # modus ponens
+       end;
+
+    ($c.if == null or (conforms_to($c.if) as $cond | check($cond)))
+    and ($c.ifcond == null or (conforms_with_constraint($c.ifcond) as $cond | check($cond))) ;
 
   # c is an object-defined constraint, possibly with a .forall
   def conforms_with_constraint(c):
@@ -276,7 +279,7 @@ def conforms_to(t; exactly):
     def conforms_with_constraint_ignore_pipeline:
       # ("conforms_with_constraint entry: \(.)" | debug) as $debug |
       
-      when (c.if; conforms_with_conditional(c))
+      when (c.if or c.ifcond; conforms_with_conditional(c))
       and when(c.length; length == c.length)
       and when(c.schema; conforms_to(c.schema))
       and when(c.minLength; length >= c.minLength)
