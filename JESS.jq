@@ -1,7 +1,7 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.5",
+  "version": "0.0.1.6",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
@@ -12,7 +12,7 @@ module {
 };
 
 # JESS - JSON Extended Structural Schemas
-# Date: 2019-07-22
+# Date: 2019-07-23
 # For documentation, see JESS.txt
 
 # Requires: jq 1.5 or higher
@@ -35,6 +35,7 @@ module {
 # NEWS:
 # 1.5 | conforms_to(1.5)
 # .ifcond # can be specified as an alternative to, or in addition to, .if
+# "scalar"
 
 #################################
 
@@ -428,6 +429,7 @@ def conforms_to(t; exactly):
   elif t == "numeric" then (type == "string" and (tonumber|tostring) == .)
   elif t == "nonNegativeInteger" then (type == "number" and floor == . and . >= 0)
   elif t == "positiveInteger" then  (type == "number" and floor == . and . > 0)
+  elif t == "scalar" then  (type | (. != "object" and . != "array"))
   elif t == "ISO8601Date" then is_ISO8601Date
   elif t == "token" then (test("[\n\r\t]")|not) and (test("^ ")|not) and (test(" $")|not) and (test(" ")|not)
   elif t == "constraint" then isExtendedType  # TODO - elaborate
