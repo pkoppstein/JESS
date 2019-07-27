@@ -1,7 +1,7 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.6",
+  "version": "0.0.1.7",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
@@ -12,7 +12,7 @@ module {
 };
 
 # JESS - JSON Extended Structural Schemas
-# Date: 2019-07-23
+# Date: 2019-07-24
 # For documentation, see JESS.txt
 
 # Requires: jq 1.5 or higher
@@ -36,8 +36,30 @@ module {
 # 1.5 | conforms_to(1.5)
 # .ifcond # can be specified as an alternative to, or in addition to, .if
 # "scalar"
-
+# $nullable
 #################################
+
+def nullable:
+  $ARGS.named.nullable;
+
+def assert($assertion; etc):
+  if $assertion then .
+  elif $ARGS.named.explain
+  then etc | debug
+  else .
+  end
+  | $assertion;
+
+def assert($assertion; $msg; $v1):
+  assert($assertion; "\($msg): \($v1)");
+
+def assert($assertion; $msg; $v1; $v2):
+  assert($assertion; "\($msg): \($v1):")
+  | assert($assertion; $v2);
+
+def expecting($type; $condition):
+  assert($condition;
+         "expecting type \($type) but got"; .);
 
 # Customization is via an object provided e.g. via --slurpfile prelude prelude.json
 # The object might look like:
@@ -213,6 +235,8 @@ def conforms_to(t; exactly):
 
   def isUnion: type == "array" and length>1 and .[0] == "+" ;
 
+  def isCompound: isConjunction or isDisjunction or isUnion;
+  
   # Does . have the form of a JESS type?
   # isExtendedType returns true for strings since any string is potentially a type name.
   def isExtendedType:
@@ -231,9 +255,9 @@ def conforms_to(t; exactly):
       if endswith("/") then { re: .[1:-1], m: "" }
       else capture("/(?<re>.*)/(?<m>[^/]*)$")
       end // null;
-  (t | parseAsRegex) as $p
-  | $p and if $p.m then test($p.re; $p.m) else test($p.re) end ;
-
+    (type == "string")    # the nullable possibility should be handled elsewhere
+    and (t | parseAsRegex) as $p
+    | $p and if $p.m then test($p.re; $p.m) else test($p.re) end ;
 
 # ::==
   # . and t are both assumed to be objects and t is to be interpreted as a structural constraint
@@ -416,11 +440,12 @@ def conforms_to(t; exactly):
     . as $x | any( t[]; . as $type | $x | conforms_to($type)) ;
 
   if type == t then true
+  elif t == "nonnull" then . != null                           # check "nonnull" early
+  elif . == null and nullable and (t|isCompound|not) then true # so regex-defined types would be nullable too
   elif (t == true or t == false or t == null) then . == t      # boolean values and null can represent themselves
   elif t == "number" or t == "boolean" or t == "string" or t == "object" or t == "array" or t == "null" then type == t
   elif (t | type) == "number" then t == .                      # numbers also represent themselves
   elif t == "JSON" then true
-  elif t == "nonnull" then . != null
   elif t == "nonnegative" then (type == "number" and . >= 0)
   elif t == "positive" then (type == "number" and . >= 0)
   elif t == "integer" then (type == "number" and floor == .)
@@ -486,4 +511,3 @@ def check_schemas(stream):
   conforms_to_schemas($schemas[]; true);
   
 def check_schemas: check_schemas(inputs);
-

@@ -2,8 +2,14 @@
 
 # Test the correctness of the JESS.jq module, which must either be in a directory known to jq,
 # or in the directory specified by -L PATHNAME
+# Options:
+# -L DIR
+# --expected  # show the expected output
+# --nullable  # --arg nullable true
 
-# VERSION 0.0.1
+VERSION="0.0.2"
+
+NULLABLE=
 
 # Expected output:
 function expected {
@@ -21,17 +27,22 @@ case "$1" in
     --expected ) expected
 	 exit
 	 ;;
+    --nullable ) NULLABLE="--arg nullable true"
+	 shift
+	 ;;
 esac
 
 
 
-jq -nc $LOCATION 'include "JESS";
+jq -nc $LOCATION $NULLABLE 'include "JESS";
   def assert(value; msg):
     if value // false then empty else msg end;
 
   # An array of [INPUT, CONSTRAINT] pairs that are expected to fail
   def fail: [
     [ "correctly determined failure", "string"],
+
+    [null,                            "nonnull"],                # whether nullable or not
 
     [ 1,                              true],
     [ 1.5,                            2],
@@ -58,16 +69,16 @@ jq -nc $LOCATION 'include "JESS";
     ({id: 1, noname: "Name"}
      |
        [., [ "&", "object", {"if": ["&",  {has: "id"}], then: ["&", {has: "name"} ] }]] 
-)
-
-
+    )
   ];
-
 
 
   # An array of [INPUT, CONSTRAINT] pairs that are expected to pass
   def pass: [
     [true,              "correctly determined failure"],
+
+    [null,              ["+", "null", "integer"]],                  # whether nullable or not
+
     [ 1.5,              1.5                                    ],
     [ [1,2],            ["integer"]                            ],   # ARRAY OF INTEGER
     [ 1,                [[], {"min":1}, "integer", "number"]   ],   # CONJUNCTION
@@ -131,5 +142,16 @@ jq -nc $LOCATION 'include "JESS";
 
   ### Proceed:
   (pass[] | . as [$in, $c]  | assert($in | conforms_to($c); .)),
-  (fail[] | . as [$in, $c]  | assert($in | conforms_to($c) | not; .))
+  (fail[] | . as [$in, $c]  | assert($in | conforms_to($c) | not; .)),
+
+  # "$ARGS.named.nullable is \($ARGS.named.nullable)",
+
+  (if $ARGS.named.nullable
+   then ([null, "integer"] | . as [$in, $c] | assert($in | conforms_to($c); .)),
+        ([null, "/ab/"   ] | . as [$in, $c] | assert($in | conforms_to($c); .))
+   else
+        ([null, "integer"] | . as [$in, $c] | assert($in | conforms_to($c) | not; .)),
+        ([null, "/ab/"   ] | . as [$in, $c] | assert($in | conforms_to($c) | not; .)),
+        ([null, ["+", "null", "integer"]] | . as [$in, $c]  | assert($in | conforms_to($c); .))
+   end )
 '

@@ -43,8 +43,8 @@ Some highlights:
 * constraints, including referential integrity constraints and recursive constraints, are supported;
 * modularity of a JESS schema is supported by allowing the
   schema to be written as multiple JSON documents in different files;
-* a jq module, JESS.jq, is provided for validating JSON documents against a JESS
-  schema;
+* a jq module, JESS.jq, is provided for validating JSON documents against a JESS schema;
+* two modes of operation are supported - a nullable mode and the default non-nullable mode
 * a bash script, also named JESS, provides a convenient wrapper for JESS.jq
 
 The "J" in JESS stands for JSON, and the ESS stands for "Extended
@@ -210,7 +210,8 @@ Here is the structural schema of the objects as inferred by the schema inference
 (2) citylots.json
 
 [citylots.json](https://raw.githubusercontent.com/zemirco/sf-city-lots-json/master/citylots.json)
-has the following structural schema as inferred by [schema.jq](https://gist.github.com/pkoppstein/a5abb4ebef3b0f72a6ed):
+has the following structural schema as inferred by [schema.jq](https://gist.github.com/pkoppstein/a5abb4ebef3b0f72a6ed)
+in non-nullable mode:
 ```
 {
   "type": "string",
@@ -244,6 +245,29 @@ has the following structural schema as inferred by [schema.jq](https://gist.gith
 ```
 Here the type "JSON" represents any JSON entity.
 
+# Nullable and non-nullable modes
+
+In general, a type is said to be `nullable` if it includes the null value.
+
+In JESS, the only base types that are normally regarded as nullable
+are `"JSON"`, `"scalar"`, and `"null"`, but both the schema inference
+engine schema.jq and the JESS conformance checker JESS.jq support a
+nullable mode in which essentially all types except `"nonnull"` are
+regarded as nullable.
+
+This mode often makes it easier to work with permissive schemas.  For
+example, in the default mode, specifying that the value at a
+particular key must be either a JSON string or null, one would have to
+write something like:
+
+` ["+", "null", "string"]`
+
+whereas if nullable mode is assumed, one could simply write:`"string"`.
+
+This documentation for the most part ignores the nullable mode, so
+that if we were to say that the `"string"` type can be viewed as the
+set of JSON strings, it should be understood that in nullable mode,
+the `"string"` type would also include `null`.
 
 # String-defined Types
 

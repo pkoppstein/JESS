@@ -110,6 +110,11 @@ See [jq manual](https://stedolan.github.io/jq/manual/#Modules) for how to use jq
 jq -n --argfile schema PATHNAME 'include "JESS"; check' INPUT.json ...
 ~~~
 
+####With a single schema in nullable mode:
+~~~sh
+jq -n --arg nullable true --argfile schema PATHNAME 'include "JESS"; check' INPUT.json ...
+~~~
+
 #### With single schema and one or more preludes:
 ~~~sh
 # jq -n --argfile schema PATHNAME --slurpfile PATHNAME 'include "JESS"; check' INPUT.json ...
