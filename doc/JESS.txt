@@ -44,7 +44,7 @@ Some highlights:
 * modularity of a JESS schema is supported by allowing the
   schema to be written as multiple JSON documents in different files;
 * a jq module, JESS.jq, is provided for validating JSON documents against a JESS schema;
-* two modes of operation are supported - a nullable mode and the default non-nullable mode
+* two modes of operation are supported - a nullable mode and the default non-nullable mode;
 * a bash script, also named JESS, provides a convenient wrapper for JESS.jq
 
 The "J" in JESS stands for JSON, and the ESS stands for "Extended
@@ -211,7 +211,7 @@ Here is the structural schema of the objects as inferred by the schema inference
 
 [citylots.json](https://raw.githubusercontent.com/zemirco/sf-city-lots-json/master/citylots.json)
 has the following structural schema as inferred by [schema.jq](https://gist.github.com/pkoppstein/a5abb4ebef3b0f72a6ed)
-in non-nullable mode:
+in nullable mode:
 ```
 {
   "type": "string",
@@ -644,7 +644,7 @@ Notes:
       "/^sat(urday)?$/" 
    ]
   }
-```    
+```
 
 The definition of a prelude may be spread amongst multiple files.
 Each file should specify one JSON object as illustrated above. A particular
