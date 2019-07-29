@@ -1,7 +1,7 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.8",
+  "version": "0.0.1.9",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
@@ -133,7 +133,7 @@ def pipe(pipeline):
 
   def jsonstring: "(((?<=\\\\)\")|[^\"])*"; # excluding the outer quotation marks
 
-  def trim: sub("^ +";"") | sub(" +$";"");
+  def trim: if type == "string" then sub("^ +";"") | sub(" +$";"") else . end;
 
   def parseMcolonN:
     def ton: if type == "string" and test("[0-9]") then tonumber else . end;
@@ -164,15 +164,23 @@ def pipe(pipeline):
       end 
       // null
       ;
-	
+
+  # workaround for bug in jq 1.6
+  def isnumber:
+    type == "number"
+    or (type == "string" and try (tonumber | true) catch false) ;
+
   def eval(f):
-    # (f|debug) as $debug |
+    # (f|debug) as $debug
     # | debug |
-    if f | type | (. == "number" or . == "boolean" or . == "null") then .
+    if f == "true" then true
+    elif f == "false" then false
+    elif f | type | (. == "boolean" or . == "null" or . == "number") then f
+    elif f|isnumber then f|tonumber
     elif (f|type) == "array"
     then if f == [] then . else eval(f[0]) | eval( f[1:] ) end
     elif (f|type) == "object"
-    then if f.pipeline == null then . else eval(f.pipeline) end
+    then if f.pipeline == null then . else pipe(f.pipeline) end
     elif f == "." or f == "" then .
     elif f == "[]" then []              # perhaps should be an error
     elif f == ".[]" then .[]
@@ -231,9 +239,10 @@ def pipe(pipeline):
       end
     end ;
 
+    # START OF BODY of def pipe
     if (pipeline|type == "object")
     then if pipeline.pipeline
-         then (pipeline.pipeline | map(trim)) as $p | eval($p)
+         then (pipeline.pipeline | map(trim)) as $p | pipe($p)
          else .
 	 end
     elif (pipeline|type == "array") then eval(pipeline|map(trim))
@@ -444,7 +453,7 @@ def conforms_to(t; exactly):
 
     elif c.forall 
     # if the pipeline emits nothing, there is nothing to be checked
-    then all( pipe(c.forall)?; conforms_with_constraint_ignore_pipeline)
+    then all( pipe(c.forall)? ; conforms_with_constraint_ignore_pipeline)
 
     # c.setof is a special case:
     elif c.setof

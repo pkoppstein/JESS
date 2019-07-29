@@ -120,6 +120,9 @@ jq -nc $LOCATION $NULLABLE $EXPLAIN 'include "JESS";
 
     [{"a":"X"},         ["&", {ifcond: {"has": "a"}, then: {"a": "string"} } ] ],
 
+    [1,                 ["&", {forall: {pipeline: [3, 2]}, enumeration: [2]}] ],
+    [1,                 ["&", {forall: "2|3.5", enumeration: [3.5]}] ],
+
   # Compare [*1] above
    (("a","b") |  
       [.,       ["&", {forall: {pipeline: ["sub(\"a|b\";\"A\")" ]}, enumeration: ["A","B"]}] ],
