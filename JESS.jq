@@ -1,7 +1,7 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.7",
+  "version": "0.0.1.8",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
@@ -37,6 +37,7 @@ module {
 # .ifcond # can be specified as an alternative to, or in addition to, .if
 # "scalar"
 # $nullable
+# .[M:N]
 #################################
 
 def nullable:
@@ -73,7 +74,7 @@ def expecting($type; $condition):
 #
 # Always return an object
 def prelude:
-  # ad objects but raise an error if different values are found at any one key:
+  # add objects but raise an error if different values are found at any one key:
   def safelyAdd:
     def sa: .[0] as $a | .[1] as $b
       | reduce ($b|keys_unsorted[]) as $k ($a;
@@ -119,13 +120,14 @@ def is_ISO8601Date:
 # Any other type of error encountered during evaluation will result in a value of null.
 #
 # The recognized filters are of the following four types:
-# 1. References to well-known jq filters of arity 0, e.g. "ascii_downcase".
-# 2. References to certain jq filters of arity greater than 0: splits sub gsub
-# 3. Specially-defined filters with the indicated semantics:
+# 1. References to well-known jq filters of arity 0, e.g. "ascii_downcase", "debug"
+# 2. References to certain jq filters of arity greater than 0: split splits sub gsub
+# 3. Specially-defined filters with the semantics defined by jq expressions, e.g.
 #    "first" : if type == "string" then .[0:1] else first end
 #    "last"  : if type == "string" then .[-1:] else last end
-# 4. Any of the above followed by one or more occurrences of `[]`. 
-# 5. `.`, `..`, `.[]`, .[keyname], [integer]
+#    and similarly for "integers", "numbers", "nonnull"
+# 4. Any of the above followed by one or more occurrences of `[]`.
+# 5. `.`, `..`, `.[]`, .[keyname], .[integer], [M: ], [ :N], [M:N]
 #
 def pipe(pipeline):
 
@@ -133,6 +135,22 @@ def pipe(pipeline):
 
   def trim: sub("^ +";"") | sub(" +$";"");
 
+  def parseMcolonN:
+    def ton: if type == "string" and test("[0-9]") then tonumber else . end;
+    capture( "^ *(?<m>-? *[0-9]*) *: *(?<n>-? *[0-9]*) *$" ) // false
+    | if .
+      # avoid the bug in map_values when ? is used
+      then map_values(ton)
+      else .
+      end ;
+
+  def slice($m; $n):
+    if $m|type == "number"
+    then if $n|type == "number" then .[$m : $n ] else .[$m : ] end
+    else if $n|type == "number" then .[ : $n ] else .[0: ] end
+    end;
+
+  # sub/2, sub/3, gsub/2, gsub/3
   def sub_or_gsub(f):
     (f | capture( "^(?<g>g?)sub[(] *\"(?<a>" + jsonstring + ")\" *; *\"(?<b>" + jsonstring + ")\" *(; *(?<c>" + jsonstring + ")\")? *[)]$" )
       // capture( "^(?<g>g?)sub[(](?<a>"     + jsonstring +         ");(?<b>" + jsonstring +       ")(;(?<c>" + jsonstring +     "))?[)]$" )
@@ -150,7 +168,8 @@ def pipe(pipeline):
   def eval(f):
     # (f|debug) as $debug |
     # | debug |
-    if (f|type) == "array"
+    if f | type | (. == "number" or . == "boolean" or . == "null") then .
+    elif (f|type) == "array"
     then if f == [] then . else eval(f[0]) | eval( f[1:] ) end
     elif (f|type) == "object"
     then if f.pipeline == null then . else eval(f.pipeline) end
@@ -159,6 +178,9 @@ def pipe(pipeline):
     elif f == ".[]" then .[]
     elif f == ".." then ..
     elif f == "add" then add
+    elif f == "all" then all
+    elif f == "any" then any
+    elif f == "arrays" then arrays
     elif f == "ascii_downcase" then ascii_downcase
     elif f == "ascii_upcase" then ascii_upcase
     elif f == "debug" then debug
@@ -186,17 +208,22 @@ def pipe(pipeline):
     elif f == "unique" then unique
     elif f == "values" then values
     elif f | endswith("[]") then eval(f[:-2]) | .[]
-    else (f | capture( "^splits( *\"(?<x>.*)\"\\ *)$" ) 
-           // capture( "^splits[(](?<x>.*)[)]$" )
+    else (f | capture( "^(?<split>splits?)[(] *\"(?<x>.*)\"\\ *[)]$" ) 
+           // capture( "^(?<split>splits?)[(](?<x>.*)[)]$" )
            // null) as $p
     | if $p
-      then splits( $p.x )
-      # .[foo] or .[N] without ignoring spaces within the square brackets
+      then if $p.split == "splits" then splits( $p.x )
+           else split( $p.x )
+	   end
+      # .[foo] or .[N] or .[M:N] etc, without ignoring spaces within the square brackets
       else (f | capture( "^ *[.]\\[(?<x>.+)\\] *$") // null) as $p
       | if $p
         then if type == "array" and ($p.x | test("^-?[0-9]+$"))
              then .[ $p.x | tonumber ]
-             else .[ $p.x ]
+	     else ($p.x | parseMcolonN) as $q
+	     | if $q then slice($q.m; $q.n)
+               else .[ $p.x ]
+               end
 	     end
         else sub_or_gsub(f)
 	     // ("WARNING: \(input_filename):\(input_line_number): unknown filter: \(f)" | debug | not )
@@ -296,6 +323,7 @@ def conforms_to(t; exactly):
   # c is an object-defined constraint, possibly with a .forall
   def conforms_with_constraint(c):
 
+    # arrays are potentially evaluable too, but here we need a predicate for use with keys that are normally arrays
     def isEvaluable:
       type == "string" or type == "object";
       
@@ -407,16 +435,18 @@ def conforms_to(t; exactly):
     | conforms_with_constraint(c | (.supersetof = $set) )
     elif c.enumeration | isEvaluable
     then [pipe(c.enumeration)] as $set
-    | conforms_with_constraint(c | (.enumeration = $set) )
+    | (c | (.enumeration = $set) ) as $cprime
+    | conforms_with_constraint($cprime)
 
     elif c.oneof | isEvaluable
     then [pipe(c.oneof)] as $set
     | conforms_with_constraint(c | (.oneof = $set) )
 
-
     elif c.forall 
     # if the pipeline emits nothing, there is nothing to be checked
     then all( pipe(c.forall)?; conforms_with_constraint_ignore_pipeline)
+
+    # c.setof is a special case:
     elif c.setof
     then [ pipe(c.setof)? ] | unique | conforms_with_constraint(c | del(.setof) )
     else conforms_with_constraint_ignore_pipeline
@@ -511,3 +541,4 @@ def check_schemas(stream):
   conforms_to_schemas($schemas[]; true);
   
 def check_schemas: check_schemas(inputs);
+

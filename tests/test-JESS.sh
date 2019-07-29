@@ -7,9 +7,10 @@
 # --expected  # show the expected output
 # --nullable  # --arg nullable true
 
-VERSION="0.0.2"
+VERSION="0.0.4"
 
 NULLABLE=
+EXPLAIN=
 
 # Expected output:
 function expected {
@@ -27,6 +28,9 @@ case "$1" in
     --expected ) expected
 	 exit
 	 ;;
+    --explain ) EXPLAIN="--arg explain true"
+	shift
+	;;
     --nullable ) NULLABLE="--arg nullable true"
 	 shift
 	 ;;
@@ -34,7 +38,7 @@ esac
 
 
 
-jq -nc $LOCATION $NULLABLE 'include "JESS";
+jq -nc $LOCATION $NULLABLE $EXPLAIN 'include "JESS";
   def assert(value; msg):
     if value // false then empty else msg end;
 
@@ -43,6 +47,7 @@ jq -nc $LOCATION $NULLABLE 'include "JESS";
     [ "correctly determined failure", "string"],
 
     [null,                            "nonnull"],                # whether nullable or not
+    [true,                            false],
 
     [ 1,                              true],
     [ 1.5,                            2],
@@ -66,6 +71,8 @@ jq -nc $LOCATION $NULLABLE 'include "JESS";
 
     ["-12",     "N" ],  # N is for naturals only
 
+    [{"name":1, "id": 0},   ["&", {ifcond: {"has": "name"}, then: {"name": "string", "id": "integer"}} ]],
+
     ({id: 1, noname: "Name"}
      |
        [., [ "&", "object", {"if": ["&",  {has: "id"}], then: ["&", {has: "name"} ] }]] 
@@ -86,6 +93,9 @@ jq -nc $LOCATION $NULLABLE 'include "JESS";
     [ [false, 1],       [[], {"length": 2}]                    ],   # LENGTH==2
     [ [false, 1],       ["integer", "boolean"]                 ],   # DISJUNCTION
     [ [false, 1],       [[], {"length": 2}, ["integer", "boolean"] ]],  # integer/boolean ARRAY OF LENGTH 2
+
+    [ [],               [ "JSON" ]],
+    [ [],               "array"],
 
     # array of (boolean or (integer and number))
     [[1,2],             ["boolean", [[], {"and": ["integer", "number"]}] ]],
@@ -108,6 +118,8 @@ jq -nc $LOCATION $NULLABLE 'include "JESS";
     [ "a|b",            ["&", { "forall": {"pipeline": ["splits(\"|\")" ]},  "ascii_downcase": true } ] ],
     [ "a,b",            ["&", { "forall": "splits(\",\")",  "ascii_downcase": true } ] ],
 
+    [{"a":"X"},         ["&", {ifcond: {"has": "a"}, then: {"a": "string"} } ] ],
+
   # Compare [*1] above
    (("a","b") |  
       [.,       ["&", {forall: {pipeline: ["sub(\"a|b\";\"A\")" ]}, enumeration: ["A","B"]}] ],
@@ -128,6 +140,9 @@ jq -nc $LOCATION $NULLABLE 'include "JESS";
    [ {"answer": "yes"}, {"answer": ["&", {"enumeration": ["yes", "no", "NA"]}]} ],
 
    [1,                  ["&", {if: "number", then: ["+", 0, 1]}] ],
+
+   # When a string, .enumeration computes the array of the values produced by the pipeline and so is more like "enumeration of"
+   [ {"enumeration": [1,2], "a":1},   ["&", {"forall": ".[a]", "enumeration": ".[enumeration][]" }] ],
 
    # An integrity constraint:
    [ {objects: [{id: 1, name: "A"}, {id:2, name: "B"},  {id:3, name: "C"} ],

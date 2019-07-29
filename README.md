@@ -11,9 +11,7 @@ a collection of such documents.
 
 This repository contains:
 
-* a specification of the JESS language for JSON schemas (also available
-as the [Wiki Home Page](https://bitbucket.org/pkoppstein/jess/wiki/Home) of 
-this repository)
+* a specification of the JESS language for JSON schemas (also available as the [Wiki Home Page](https://bitbucket.org/pkoppstein/jess/wiki/Home) of this repository)
 * JESS.jq, a reference implementation of a conformance checker, written in [jq](https://stedolan.github.io/jq/) 
 * JESS, a wrapper script for JESS.jq
 * supporting documentation and test cases.

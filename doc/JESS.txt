@@ -1,4 +1,4 @@
-2019.07.24 Version 0.0.1.5
+2019.07.25 Version 0.0.1.6
 
 JESS.txt
 
@@ -461,6 +461,9 @@ The following primitives have the same semantics as in jq:
 ..
 .[]
 add
+all
+any
+arrays
 ascii_downcase
 ascii_upcase
 debug
@@ -501,7 +504,9 @@ Additional JESS primitives are as follows:
 
 * `numbers` has the semantics of the jq expression
   `select( type=="number" )`
-  
+
+* `.[M;N`, `.[M:]`, and `.[:N]` can be used for array or string slices, as in jq
+
 * `.[X]` has the semantics of the jq expression `.[X]` if
   X is an integer and if the input at that point is an array;
   otherwise it has the semantics of the jq expression .["X"]
@@ -527,7 +532,8 @@ an object-defined pipeline should be used.
 * `sub(re;s;flags)`
 * `gsub(re;s)`
 * `gsub(re;s;flags)`
-* `splits(re)` 
+* `split(s)`
+* `splits(re)`
 
 Except in case of ambiguity, the quotation marks normally
 required for the arguments may all be dropped, e.g. one
@@ -627,10 +633,11 @@ Here "X:Date" and "X:md5" are defined by regular expressions in the obvious way,
 and "X:UnitInterval" is defined using a JESS conjunction constraint.
 
 Notes:
+
 * No prelude need be specified.
 * JESS string types cannot be redefined.
 * **New types defined in the prelude should be named with a colon** (":") as illustrated.
-* To add a new named type based on a regular expression with modifies, follow this example:
+* To add a new named type based on a regular expression with modifiers, follow this example:
 
 ```
   "types": {
@@ -786,9 +793,10 @@ For example, if the constraint object takes the form:
 
 `  {"setof": PIPELINEA, "subsetof": PIPELINEB }`
 
-then it will be satisfied if and only if the set formed by evaluating
-PIPELINEA is a subset of the set formed by evaluation PIPELINEB, it
-being understood that a set is regarded here as being a subset of itself.
+then it will be satisfied if and only if the set formed by collecting
+the values produced by PIPELINEA is a subset of the set formed by
+collecting the values produced by PIPELINEB, it being understood that
+a set is regarded here as being a subset of itself.
 
 An example is given in the section on Referential Integrity Constraints.
 
@@ -862,6 +870,9 @@ where:
    to be evaluated at `.`.
 - if CONDITION raises an error, then the constraint fails
 
+In the following, PIPELINE may be a string specifying a pipeline, or a
+JSON object with a "pipeline" key specifying an array-specified
+pipeline.
 
 "::<=": OBJECT is satisfied if conforms_with_object_minimally(OBJECT)
 
@@ -901,6 +912,9 @@ distinct: true is satisfied if (sort == unique)
 endswith:X is satisfied if endswith(X)
 
 enumeration: ARRAY is satisfied if (. as $in | any(ARRAY[]; . == $in))
+
+enumeration: PIPELINE is satisfied as with enumeration: ARRAY 
+  using the array of values produced by the specified pipeline.
 
 equal: X is satisfied if . == X
 
