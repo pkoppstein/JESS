@@ -7,7 +7,7 @@
 # --expected  # show the expected output
 # --nullable  # --arg nullable true
 
-VERSION="0.0.4"
+VERSION="0.0.10"
 
 NULLABLE=
 EXPLAIN=
@@ -63,11 +63,11 @@ jq -nc $LOCATION $NULLABLE $EXPLAIN 'include "JESS";
     [ {id:"a"} ,                      ["&", { "::>=":    {id: "string", name: "string"}}] ],
 
     # check we get a WARNING:
-    [ "a",                 ["&", {forall: {pipeline: ["goosub(a|b;A)" ]}, enumeration: ["A","B"]}] ],
+    [ "a",                            ["&", {forall: ["goosub(a|b;A)"], enumeration: ["A","B"]}] ],
 
     # [*1] compare below:
-    ["c",       ["&", {forall: {pipeline: ["sub(\"a|b\";\"A\")" ]}, enumeration: ["A","B"]}] ],
-    ["c",       ["&", {forall: {pipeline: ["sub(a|b;A)" ]}, enumeration: ["A","B"]}] ],
+    ["c",       ["&", {forall: ["sub(\"a|b\";\"A\")"],        enumeration: ["A","B"]}] ],
+    ["c",       ["&", {forall: ["sub(a|b;A)"],                enumeration: ["A","B"]}] ],
 
     ["-12",     "N" ],  # N is for naturals only
 
@@ -115,21 +115,26 @@ jq -nc $LOCATION $NULLABLE $EXPLAIN 'include "JESS";
     [ [{a: 1}, {a:2}],  ["&", {setof: ".[]|.[a]", subsetof: [1,2] } ] ],
     [ [{a: 1}, {a:2}],  ["&", {setof: ".[]|.[a]", subsetof: [2,1] } ] ],
 
-    [ "a|b",            ["&", { "forall": {"pipeline": ["splits(\"|\")" ]},  "ascii_downcase": true } ] ],
+    [ "a|b",            ["&", { "forall": ["splits(\"|\")" ],  "ascii_downcase": true } ] ],
     [ "a,b",            ["&", { "forall": "splits(\",\")",  "ascii_downcase": true } ] ],
 
     [{"a":"X"},         ["&", {ifcond: {"has": "a"}, then: {"a": "string"} } ] ],
 
-    [1,                 ["&", {forall: {pipeline: [3, 2]}, enumeration: [2]}] ],
+    [1,                 ["&", {forall: [3, 2],  enumeration: [2]}] ],
     [1,                 ["&", {forall: "2|3.5", enumeration: [3.5]}] ],
+
+    [null,              ["&", {forall: "range(0;5)",       enumeration: [0,1,2,3,4,5] } ] ],
+
+    # "enumeration" can also be a string to be evaluated, or an object with a "pipeline" key:
+    [null,              ["&", {forall: "range(0;5)",       enumeration: {pipeline: [["range(0;10)"]] }}]],
 
   # Compare [*1] above
    (("a","b") |  
-      [.,       ["&", {forall: {pipeline: ["sub(\"a|b\";\"A\")" ]}, enumeration: ["A","B"]}] ],
-      [.,       ["&", {forall: {pipeline: ["sub(a|b;A)" ]}, enumeration: ["A","B"]}] ] 
+      [.,       ["&", {forall: ["sub(\"a|b\";\"A\")"],     enumeration: ["A","B"]}] ],
+      [.,       ["&", {forall: ["sub(a|b;A)"],             enumeration: ["A","B"]}] ] 
    ),
 
-   [ "a",               ["&", {forall: {pipeline: [".", "sub(a|b;A)" ]}, enumeration: ["A","B"]}] ],
+   [ "a",       ["&", {forall: [".", "sub(a|b;A)" ],       enumeration: ["A","B"]}] ],
 
    [{"a": [null] },     {a: ["null", "number"] }               ],   # ARRAY OF - DISJUNCTION
    [{"a": 1},           {a: [[], {min:0, max:10} ]}            ],
@@ -144,8 +149,8 @@ jq -nc $LOCATION $NULLABLE $EXPLAIN 'include "JESS";
 
    [1,                  ["&", {if: "number", then: ["+", 0, 1]}] ],
 
-   # When a string, .enumeration computes the array of the values produced by the pipeline and so is more like "enumeration of"
-   [ {"enumeration": [1,2], "a":1},   ["&", {"forall": ".[a]", "enumeration": ".[enumeration][]" }] ],
+   # When a string, .enumeration should evaluate to an array; see also .arrayof
+   [ {"enumeration": [1,2], "a":1},   ["&", {"forall": ".[a]", "enumeration": ".[enumeration]" }] ],
 
    # An integrity constraint:
    [ {objects: [{id: 1, name: "A"}, {id:2, name: "B"},  {id:3, name: "C"} ],

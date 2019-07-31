@@ -1,4 +1,4 @@
-2019.07.25 Version 0.0.1.6
+2019.07.25 Version 0.0.1.10
 
 JESS.txt
 
@@ -54,7 +54,7 @@ conforming documents, e.g.:
 
 `["integer"]` specifies an array of integers
 
-`{"a": [0,1]}` specifies a JSON object with an array-valued key, "a", consisting only of 0s and 1s.
+`{"a": [0,1]}` specifies a JSON object with an array-valued key, "a", consisting only of 0s and 1s
 
 `"/^[0-9]{5}$/" uses a regular expression to specify strings of exactly five digits
 
@@ -388,7 +388,7 @@ e.g. to specify an enumeration type, one could write:
 Thus to specify an array of "Y" or "N" strings, the following schema would
 suffice:
 
-`  [ ["&", {"enumeration": ["Y", "N"]} ]`
+`  [ ["&", {"enumeration": ["Y", "N"]} ] ]`
 
 ## Object-defined Constraints
 
@@ -431,14 +431,12 @@ There is no possibility of ambigity in JESS because of the strict
 rules regarding the formation of valid JESS pipelines.
 
 If a pipeline is specified as a string, it is split into
-pipe-delimited components naively.  Therefore,
-if an argument to a filter contains a pipe character,
-the pipeline must instead be specified by an
-object of the form `{"pipeline": [ "string"} }`,
-that is by an object with an array-valued key named "pipeline",
-each item of which is interpreted as a single filter.
+pipe-delimited components naively.  Therefore, if an argument to a
+filter contains a pipe character, the pipeline must instead be
+specified by an array, e.g. : `[ "string", "length"]`. Details about
+the processing of pipelines specified by arrays are given below.
 
-For example, to impose a requirement on a string of hyphen-separated
+To impose a requirement on a string of hyphen-separated
 values that each value be lowercase, we could write the constraint as
 follows:
 
@@ -447,46 +445,102 @@ follows:
 Notice that the argument to `splits` can be specified without the normally
 required escaped double-quotation marks.
 
-For pipe-separated values, we would have to use an object-defined
-pipeline:
+For pipe-separated values, we would have to use an array-defined pipeline:
 
-`   ["&", "string", { "forall": {"pipeline": ["splits(|)" ]},  "ascii_downcase": true } ]`
+`   ["&", "string", { "forall": ["splits(|)"],  "ascii_downcase": true } ]`
+
+### Array-defined pipelines
+
+If the first item in the array is "||", then the remaining items are all evaluated in parallel,
+and the result is assembled into an array.  The values in top-level objects are also
+evaluated in parallel.  For example:
+
+Input: `{"a": 0, "b": 1 }`
+Pipeline: ["||", ".[a]", ".[b]" ]
+Result: [0,1]
+
+Input: {"a": 0, "b": 1
+Pipeline: ["||", {"x": ".[a]", "y": ".[b]"} ]
+Result:  [{"x": 0, "y": 1}]
+
+If the first item in the array is not "||", evaluation of the items,
+say p1, p2, ..., as if in a pipeline like `p1 | p2 | ...`, with the
+understanding that if any of these elements, say pi, is itself an
+array, then the result of evaluating pi is an array of the items
+produced by the pipeline composed of the elements of pi.  Here are two
+examples:
+
+Input: "ab"
+Pipeline: [[ "split(\"\")" ]]
+Result: as for the jq expression `"ab" | [ split("") ]`, i.e. `[ ["a","b"] ]`
+
+Input: "ab"
+Pipeline: ["split(\"\")"], "length"]
+Result: 1
 
 
 ### Pipeline Primitives
 
-The following primitives have the same semantics as in jq:
+The following jq filters are supported:
+
 ```
 . 
 ..
 .[]
-add
-all
-any
-arrays
-ascii_downcase
-ascii_upcase
-debug
-keys
-fromjson
-keys
-length
-max
-min
-not
-objects
-paths
-scalars
-sort
-strings
-tojson
-tonumber
-tostring
-to_entries
-type
-unique
-values
+.[M;N, .[M:], and .[:N] can be used for array or string slices
 ```
+
+The expression `.[X]` has the semantics of the jq expression `.[X]` if
+ X is an integer and if the input at that point is an array;
+otherwise it has the semantics of the jq expression .["X"]
+provided the string X has non-zero length.
+
+So to access the value at a key named "a - b", you would
+just write `.[a - b]`, without any outer quotation marks.
+
+Similarly, to access the key "0" in an object, you
+would write .[0] rather than .["0"].
+
+#### jq built-ins
+
+Most jq built-ins of arity 0 are also supported, including `$ARGS`.  The
+main exceptions are the more esoteric mathematics functions, and
+filters such as `input`, `inputs` and `halt` that seem irrelevant for
+defining schemas.
+
+Most of the jq built-ins of higher arity that expect string or numeric arguments
+are also supported, specifically:
+
+```
+capture
+endswith
+gsub
+has
+join
+ltrimstr
+match
+range
+rtrimstr
+scan
+split
+splits
+startswith
+sub
+test
+```
+
+If any of the arguments to these functions contains a pipe-character, then
+an array-defined pipeline should be used.
+
+Except in case of ambiguity, the quotation marks normally
+required for the string arguments may all be dropped, e.g. one
+may write `"sub(a;A)"` as shorthand for `"sub(\"a\";\"A\")"`,
+and "sub( a ;A)" as shorthand for `:sub(\" a \";\"A\")".
+
+If the arguments contain any semicolons or double-quotation
+marks, then they should all be quoted as for JSON strings.
+
+#### JESS-defined primitives
 
 Additional JESS primitives are as follows:
 
@@ -502,48 +556,14 @@ Additional JESS primitives are as follows:
 * `integers` has the semantics of the jq expression
   `select( type=="number" and . == floor)`
 
-* `numbers` has the semantics of the jq expression
-  `select( type=="number" )`
+#### Trailing `[]`
 
-* `.[M;N`, `.[M:]`, and `.[:N]` can be used for array or string slices, as in jq
-
-* `.[X]` has the semantics of the jq expression `.[X]` if
-  X is an integer and if the input at that point is an array;
-  otherwise it has the semantics of the jq expression .["X"]
-  provided X has non-zero length.
-
-So to access the value at a key named "a - b", you would
-just write `.[a - b]`, without any outer quotation marks.
-
-Similarly, to access the key "0" in an object, you
-would write .[0] rather than .["0"].
-  
 If PRIM is any of the above primitives, then 'PRIM[]' is also allowed
 and is just an abbreviation of `PRIM|.[]`.  Similarly for PRIM[][],
 PRIM[][][], and so on.
 
-Bonus:
+#### Notes
 
-The following functions can also be included in a pipeline.
-If any of the arguments contain a pipe-character, then
-an object-defined pipeline should be used.
-
-* `sub(re;s)`
-* `sub(re;s;flags)`
-* `gsub(re;s)`
-* `gsub(re;s;flags)`
-* `split(s)`
-* `splits(re)`
-
-Except in case of ambiguity, the quotation marks normally
-required for the arguments may all be dropped, e.g. one
-may write `"sub(a;A)"` as shorthand for `"sub(\"a\";\"A\")"`,
-and "sub( a ;A)" as shorthand for `:sub(\" a \";\"A\")".
-
-If the arguments contain any semicolons or double-quotation
-marks, then they should all be quoted as for JSON strings.
-
-Notes:
 1) `FOO|.[BAR]` cannot be abbreviated to `FOO[BAR]' or `FOO.BAR`.
 
 2) When using the ".[key]" notation to access the value at a key,
@@ -870,9 +890,8 @@ where:
    to be evaluated at `.`.
 - if CONDITION raises an error, then the constraint fails
 
-In the following, PIPELINE may be a string specifying a pipeline, or a
-JSON object with a "pipeline" key specifying an array-specified
-pipeline.
+In the following, PIPELINE may be a JSON string or a JSON array
+specifying a pipeline (see "Array-defined pipelines" above).
 
 "::<=": OBJECT is satisfied if conforms_with_object_minimally(OBJECT)
 
@@ -909,12 +928,15 @@ conforms_to: SCHEMA is satisfied if conforms_to(SCHEMA)
 
 distinct: true is satisfied if (sort == unique)
 
-endswith:X is satisfied if endswith(X)
+endswith: X is satisfied if endswith(X)
 
 enumeration: ARRAY is satisfied if (. as $in | any(ARRAY[]; . == $in))
 
-enumeration: PIPELINE is satisfied as with enumeration: ARRAY 
-  using the array of values produced by the specified pipeline.
+enumeration: STRING is satisfied if the evaluation of STRING as a pipeline produces an array, A,
+satisfying `enumeration A`.
+
+enumeration: OBJECT is satisfied if the evaluation of OBJECT.pipeline as a pipeline produces an array, A,
+satisfying `enumeration A`.
 
 equal: X is satisfied if . == X
 
@@ -951,8 +973,6 @@ minExclusive: X is satisfied if  . > X
 minLength: X is satisfied if length >= X
 
 notequal: X is satisfied if . != X
-
-oneof: ARRAY is satisfied if (. as $in | ARRAY | index($in))
 
 regex: REGEX is satisfied if:  (if c.modifier then test(REGEX; c.modifier) else test(REGEX)  end)
 
