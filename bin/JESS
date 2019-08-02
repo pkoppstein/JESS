@@ -6,17 +6,21 @@
 
 # For help: $0 --help
 
-VERSION=0.0.1.3
+VERSION=0.0.1.5
 
 # Requires: jq
 
 # JSON Schema Validation using JESS.jq
 
 BN=$(basename "$0")
-PRELUDEFILE=
-VERBOSE=
-SCHEMA=schema.jess
+
 DIR=
+FILTER=inputs
+NULLABLE=
+PRELUDEFILE=
+RELAX=
+SCHEMA=schema.jess
+VERBOSE=
 
 function die     { echo "$BN: $@" >&2 ; exit 1 ; }
 
@@ -26,6 +30,8 @@ Syntax: $BN [OPTIONS] file ...
 
 where the specified files contain the JSON entities to be validated.
 It is assumed that these files contain valid JSON documents.
+If the --array option is specified, the input is assumed to be an array
+and each element in the array is validated separately.
 
 A JESS Schema consists of a collection of JSON documents: an optional
 prelude, which defaults to the empty object, and one or more JSON
@@ -46,6 +52,15 @@ Options:
 -p                     # use prelude.json in the pwd as the sole prelude file
 --prelude PATHNAME     # a file, or directory in which all *.prelude.json files
                          are to be interpreted as prelude files
+--array                # signals that the schema is to be applied to each array item in turn;
+                         equivalent to `--filter inputs[]`
+--filter JQFILTER      # causes `check(JQFILTER)` to be run instead of the default `check(inputs)`,
+                       # for example `--filter "inputs[0]"` would check just `inputs[0]`
+--nullable             # determines whether all types are regarded as having null
+--relax                # use the schema `["&", {"::<=": $schema}]`; 
+                         this can be used if the schema, $schema,
+                         is a single JSON object, and signifies
+                         that the target objects need not have all the specified keys
 --schema PATHNAME      # a file, or a directory in which all *.jess files
                          are to be interpreted as JESS schemas
                        # default: schema.jess or else schema.json
@@ -75,9 +90,24 @@ do case "$1" in
       -p ) PRELUDE=prelude.json
            shift
 	   ;;
+      --array ) FILTER="inputs[]"
+		shift
+		;;
+      --filter ) FILTER="$2"
+		shift 2
+		;;
+      --explain ) EXPLAIN="--argjson explain true"
+	   shift
+	   ;;
+      --nullable ) NULLABLE="--argjson nullable 1"
+		   shift
+		   ;;
       --prelude ) PRELUDE="$2"
            shift 2
 	   ;;
+      --relax  ) RELAX='["&", {"::<=": $schema}]'
+		 shift
+           ;;
       --schema ) SCHEMA="$2"
            shift 2
 	   ;;
@@ -106,6 +136,9 @@ function checkSchemaDirectory {
   local n
   n=$(cd "$SCHEMA"; ls -1 *.jess | wc -l)
   if [ $n -eq 0 ] ; then die "Schema directory has no *.jess files" ; fi
+  if [ -n "$RELAX" ] ; then
+      die "The --relax option requires a single schema file be specified"
+  fi
 }
 
 function checkPreludeDirectory {
@@ -126,36 +159,44 @@ fi
 # df many preludes one schema
 # dd    "          schema dir
 
-JQ="jq $DIR"
+JQ="jq $EXPLAIN $NULLABLE $DIR"
+
+
+function wrap {
+  if [ -n "$RELAX" ] ; then
+      echo "; $RELAX"
+      exit
+  fi
+}
 		
 function f {
   $JQ -n --argfile schema "$SCHEMA" '
-  include "JESS"; check' "${@}" 
+    include "JESS"; '"check($FILTER $(wrap) )" "${@}" 
 }
 
 function d {
   $JQ -n --slurpfile schema <( cat "$SCHEMA"/*.jess ) '
-  include "JESS"; check_schemas' "${@}" 
+    include "JESS"; '"check_schemas($FILTER)" "${@}" 
 }
 
 function pf {
   $JQ -n --argfile prelude "$PRELUDE" --argfile schema $SCHEMA '
-  include "JESS"; check' "${@}" 
+    include "JESS"; '"check($FILTER $(wrap) )" "${@}" 
 }
 
 function pd {
   $JQ -n --argfile prelude "$PRELUDE" --slurpfile schema <( cat "$SCHEMA"/*.jess ) '
-  include "JESS"; check_schemas' "${@}" 
+    include "JESS"; '"check_schemas($FILTER)" "${@}" 
 }
 
 function df {
-  $JQ -n --slurpfile prelude <( cat "$PRELUDE"/*.prelude.json)  --argfile schema "$SCHEMA" '
-  include "JESS"; check'
+    $JQ -n --slurpfile prelude <( cat "$PRELUDE"/*.prelude.json)  --argfile schema "$SCHEMA" '
+  include "JESS"; '"check($FILTER; $(wrap) )"
 }
 
 function dd {
   $JQ -n --slurpfile prelude <(cat "$PRELUDE"/*.prelude.json )  --slurpfile schema <( cat "$SCHEMA"/*.jess ) '
-  include "JESS"; check_schemas'
+  include "JESS"; '"check_schemas($FILTER)"
 }
 
 if [ -n "$VERBOSE" ] ; then set -x ; fi
