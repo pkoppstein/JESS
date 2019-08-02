@@ -1,7 +1,7 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.10",
+  "version": "0.0.1.11",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
@@ -19,12 +19,16 @@ module {
 
 # The main entry points are defined at the end of this file and include:
 
-# check                       # check(inputs)
-# check(stream)               # presupposes $schema
-# check_schemas               # check_schemas(inputs)
-# check_schemas(stream)       # multiple schemas specified in $schema
-# conforms_to(t)              # JSON objects must conform exactly
-# inclusively_conforms_to(t)  # JSON objects may have additional keys
+# check(stream; schema)
+# check_schemas(stream; schemas) # check against an array of schemas
+#
+# check(stream)                  # check(stream; $schema)
+# check                          # check(inputs)
+# check_schemas(stream)          # multiple schemas specified in $schema
+# check_schemas                  # check_schemas(inputs)
+#
+# conforms_to(t)                 # JSON objects must conform exactly
+# inclusively_conforms_to(t)     # JSON objects may have additional keys
 
 # Usage examples:
 # jq --argfile schema MYSCHEMA.JSON 'include "JESS"; check' STREAM_OF_JSON_DOCUMENTS
@@ -40,6 +44,7 @@ module {
 # .[M:N]
 # numerous jq filters added, including range/1, range/2, range/3
 # "||" for parallel evaluation
+# .thencond .elsecond
 
 # NOTE: if pipelines can only be formed from strings but in certain
 #       contexts, an object with a "pipeline" key can be specified:
@@ -427,15 +432,19 @@ def conforms_to(t; exactly):
     | all(keys[]; . as $k | (t | has($k))) and
       all(keys[]; . as $k | $in[$k] | conforms_to(t[$k]));
 
-  # {if: TYPE, ifcond: COND, then: TYPE, else: TYPE}
+  # {if: TYPE, ifcond: COND, then: TYPE, thencond: COND, else: TYPE, elsecond: COND}
   def conforms_with_conditional($c):
     def conforms_with_constraint($constraint): conforms_to(["&", $constraint]);
 
     def check($cond):
        if $cond
-       then conforms_to($c.then)
-       elif $c.else then conforms_to($c.else)
-       else true  # modus ponens
+       then
+         ($c.then or $c.thencond)
+         and if $c.then then conforms_to($c.then) else true end
+	 and if $c.thencond then conforms_with_constraint($c.thencond) else true end
+       else # modus ponens
+         if $c.else then conforms_to($c.else) else true end
+	 and if $c.elsecond then conforms_with_constraint($c.elsecond) else true end
        end;
 
     ($c.if == null or (conforms_to($c.if) as $cond | check($cond)))
@@ -664,13 +673,16 @@ def conforms_to(t): conforms_to(t; true);
 
 def inclusively_conforms_to(t): conforms_to(t; false);
 
-def check(stream):
+def check(stream; $schema):
   foreach stream as $in ({n: 0, error: 0, this: false};
     .n+=1
     | .this=false
     | if $in|conforms_to($schema) then . else .this=true | .error+=1 end;
     select(.this)
     | "Schema mismatch #\(.error) at \(input_filename):\(input_line_number): entity #\(.n):", $in ) ;
+
+def check(stream):
+  check(stream; $schema);
 
 def check: check(inputs);
 
@@ -682,8 +694,11 @@ def conforms_to_schemas(schemas):
   conforms_to_schemas(schemas; true);
 
 # check against $schemas -- an array of schemas
+def check_schemas(stream; $schemas):
+  conforms_to_schemas($schemas[]; true);
+
 def check_schemas(stream):
   conforms_to_schemas($schemas[]; true);
-  
+
 def check_schemas: check_schemas(inputs);
 
