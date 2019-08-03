@@ -1,4 +1,4 @@
-2019.07.25 Version 0.0.1.10
+2019.07.25 Version 0.0.1.11
 
 JESS.txt
 
@@ -751,7 +751,7 @@ Objects;
 
 JSON objects at the top-level of JESS Conjunctions are all interpreted
 as JESS Constraint Objects, which may only occur there or as the
-value of an "ifcond" in a Constraint Object.
+value of an "ifcond", an "thencond", or an "elsecond" in a Constraint Object.
 
 # Examples
 
@@ -841,7 +841,7 @@ Next, we consider a conditional constraint with an "else" key:
 
 This is a long-winded equivalent to the union type: `["+", 0, 1, null]`
 
-### "ifcond"
+### "ifcond", "thencond", and "elsecond"
 
 As a kind of syntactic sugar, conditional constraints of the form:
 
@@ -851,12 +851,14 @@ can be written:
 
 `    {"ifcond": CONDITION, ...}`
 
+Similarly for "thencond" and  "elsecond".
+
 Example:
 
 `{"name":"X", "id": 0} :: [ "&", {ifcond: {"has": "name"}, then: {"name": "string", "id": "integer"}} ]`
 
 It is not an error to include both "if" and "ifcond" keys, but
-in that case, you will probably not want to specify an "else" key.
+in that case, you will probably not want to specify an "else" or "elsecond" key.
 
 ## Formal Semantics of Conditional Constraints
 
