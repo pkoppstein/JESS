@@ -7,7 +7,7 @@
 # --expected  # show the expected output
 # --nullable  # --arg nullable true
 
-VERSION="0.0.10"
+VERSION="0.0.12"
 
 NULLABLE=
 EXPLAIN=
@@ -127,6 +127,11 @@ jq -nc $LOCATION $NULLABLE $EXPLAIN 'include "JESS";
 
     # "enumeration" can also be a string to be evaluated, or an object with a "pipeline" key:
     [null,              ["&", {forall: "range(0;5)",       enumeration: {pipeline: [["range(0;10)"]] }}]],
+
+    ["LITERAL",         ["&", {forall: ".", "enumeration": {pipeline: [{"s": ["LITERAL"]}, ".[s]"] }}]],
+    [null,              ["&", {forall: [{s: "LITERAL"}, ".[s]" ], "enumeration": ["LITERAL"] }]],
+
+    [null,              ["&", {forall: "\"LITERAL\"", "enumeration": ["LITERAL"] }]],
 
   # Compare [*1] above
    (("a","b") |  

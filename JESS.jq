@@ -1,7 +1,7 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.11",
+  "version": "0.0.1.12",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
@@ -45,10 +45,11 @@ module {
 # numerous jq filters added, including range/1, range/2, range/3
 # "||" for parallel evaluation
 # .thencond .elsecond
+# pipe("\"LITERAL\"") evaluates to `"LITERAL"`
+# In pipe(pipeline): pipeline may be any JSON entity, and is only interpreted specially if it is a string or array.
 
-# NOTE: if pipelines can only be formed from strings but in certain
-#       contexts, an object with a "pipeline" key can be specified:
-#       .enumeration .subsetof .equals_setof .supersetof
+# NOTE: The value of an "enumeration", "subsetof", "equals_setof", or "supersetof" key
+#       in a constraint object can be an array, or a JSON object with a "pipeline" key.
 
 #################################
 
@@ -117,62 +118,19 @@ def is_ISO8601Date:
        + "(Z|[-+][0-9][0-9](:?[0-9][0-9])?)?" );
 
 
-# pipe(pipeline) evaluates a pipeline of filters specified by the argument, which may
-# be a string, an array, or an object.
-#
-# The filters are limited to those explicitly recognized by this function, as described below.
-#
-# If `pipeline` is an array, the array elements specify the filters to be applied.
-
-# If the first item in the array is "||", then the remaining items are all evaluated in parallel,
-# and the result is assembled into an array, e.g.
-
-# {"a": 0, "b": 1 } | pipe( ["||", ".[a]", ".[b]" ] )             #=> [0,1]
-
-# {"a": 0, "b": 1 } | pipe( ["||", {"x": ".[a]", "y": ".[b]"} ] ) #=> [{"x": 0, "y": 1}]
-
-# Otherwise, evaluation of the items, say p1, p2, ..., is as if by `p1 | p2 | ...`
-# except that if any of these elements, say pi, is itself an array, 
-# then the result of evaluating pi is an array of the items produced by the pipeline
-# composed of the elements of pi.  Here are two examples:
-#
-#    "abc" | pipe( [[ "split(\"\")" ]] ) is equivalent to the jq expression `"abc" | [ split("") ]`
-#
-#    "abc" | pipe( [ ["split(\"\")"], "length"] ) evaluates to 1
-
-# If `pipeline` is a string, the pipe-character "|" is used to split
-# the string naively, and so the pipe character cannot be used within
-# any argument of any filter specified this way.
-
-# If `pipeline` is a JSON object, it is simply returned.  This makes
-# it possible to insert JSON strings and JSON arrays into the pipeline
-# as well.  For example,
-
-# `pipe( [{"s": "LITERAL"}, ".[s]"])` would  evaluate to `"LITERAL"`.
-
-# A literal JSON string may also be included within a pipeline directly
-# by adding escaped double-quotation marks, e.g.
-# `"0|\"LITERAL\""` would evaluate to `"LITERAL"`;
+# pipe(pipeline) evaluates a pipeline of filters specified by the argument,
+# which may be any JSON value but is interpreted specially if it is a string or an array.
 #
 # If unrecognized filters are specified, the schema is regarded as invalid,
 # and an error condition may be raised.
 # Any other type of error encountered during evaluation will result in a value of null.
 #
-# The recognized filters are of the following four types:
-# 1. References to well-known jq filters of arity 0, e.g. "ascii_downcase", "debug", "$ARGS"
-# 2. References to most jq filters of arity greater than 0 that have string arguments,
-#    e.g. split, splits, sub, gsub, etc
-# 3. range/0, range/1, range/2
-# 4. Specially-defined filters with the semantics defined by jq expressions, e.g.
-#    "first" : if type == "string" then .[0:1] else first end
-#    "last"  : if type == "string" then .[-1:] else last end
-#    and similarly for "integers", "numbers", "nonnull"
-# 5. Any of the above followed by one or more occurrences of `[]`.
-# 6. `.`, `..`, `.[]`, .[keyname], .[integer], [M: ], [ :N], [M:N]
-#
 def pipe(pipeline):
 
-  def jsonstring: "(((?<=\\\\)\")|[^\"])*"; # excluding the outer quotation marks
+  # Assuming the input is a valid JSON string, 
+  # this regex uses negative look-behind to match
+  # everything between the outermost quotation marks:
+  def jsonstring: "(((?<=\\\\)\")|[^\"])*";
 
   def trim: if type == "string" then sub("^ +";"") | sub(" +$";"") else . end;
 
@@ -227,6 +185,20 @@ def pipe(pipeline):
     type == "number"
     or (type == "string" and try (tonumber | true) catch false) ;
 
+  # $x is an array whose values should be processed in parallel,
+  # with special processing of top-level objects.
+  # The result is always an array.
+  def inparallel($x):
+    . as $in
+    | def ip($object):      
+        $object | map_values(. as $p | $in | pipe($p));
+    # ("\(.) | inparallel(\($x))"|debug) as $debug
+    [ $x[] as $p | $in | if ($p|type == "object") then ip($p) else pipe($p) end ] ;
+
+  # If f is a string, then it should either be a regex (of the form "/.*/flags")
+  # or should correspond to a simple jq expression, e.g. "add" => add, ".[a]" => .["a"], ".." -> .. ;
+  # if f is any other scalar or an object, eval(f) => f;
+  # if f is an array then see below
   def eval(f):
     # (f|debug) as $debug
     # | debug |
@@ -234,7 +206,8 @@ def pipe(pipeline):
     elif f == "false" then false
     elif f | type | (. == "boolean" or . == "null" or . == "number") then f
     elif f|isnumber then f|tonumber
-    elif (f|type) == "array" and (f[0]|type == "array") then [ pipe(f[0]) ] | eval( f[1:] )
+    elif (f|type) == "array" and (f[0]|type == "array") then [ pipe(f[0]) ] | eval( f[1:] ) # wrap it
+    elif (f|type) == "array" and (f[0] == "||") then inparallel(f[1:])                      # process the args in parallel
     elif (f|type) == "array"
     then if f == [] then . else eval(f[0]) | eval( f[1:] ) end
     elif (f|type) == "object" then f
@@ -315,9 +288,12 @@ def pipe(pipeline):
     elif f == "values" then values
     elif f | endswith("[]") then eval(f[:-2]) | .[]
 
-    # arity-1 functions
-    else (f|captureArg("capture|endswith|has|join|ltrimstr|match|rstrimstr|scan|splits?|startswith|test")) as $p
-    | if $p then
+    # literal JSON strings
+    else (f | trim | capture("^\"(?<js>" + jsonstring + ")\"$") // false) as $p
+    | if $p then $p.js
+      # arity-1 functions
+      else (f|captureArg("capture|endswith|has|join|ltrimstr|match|rstrimstr|scan|splits?|startswith|test")) as $p
+      | if $p then
                    if   $p.f == "capture"    then capture( $p.x )
                    elif $p.f == "endswith"   then endswith( $p.x )
                    elif $p.f == "has"        then has( $p.x )
@@ -332,34 +308,28 @@ def pipe(pipeline):
                    elif $p.f == "test"       then test( $p.x )
 		   else "internal error processing arity-1 functions: $p is \($p)" | debug
                    end
-      # .[foo] or .[N] or .[M:N] etc, without ignoring spaces within the square brackets
-      else (f | capture( "^ *[.]\\[(?<x>.+)\\] *$") // null) as $p
-      | if $p
-        then if type == "array" and ($p.x | test("^-?[0-9]+$"))
-             then .[ $p.x | tonumber ]
-             else ($p.x | parseMcolonN) as $q
-             | if $q then slice($q.m; $q.n)
-               else .[ $p.x ]
+        # .[foo] or .[N] or .[M:N] etc, without ignoring spaces within the square brackets
+        else (f | capture( "^ *[.]\\[(?<x>.+)\\] *$") // null) as $p
+        | if $p
+          then if type == "array" and ($p.x | test("^-?[0-9]+$"))
+               then .[ $p.x | tonumber ]
+               else ($p.x | parseMcolonN) as $q
+               | if $q then slice($q.m; $q.n)
+                 else .[ $p.x ]
+                 end
                end
-             end
-        else sub_or_gsub(f)
-        // range_numbers(f)
-        // ("WARNING: \(input_filename):\(input_line_number): unknown filter: \(f)" | debug | not )
+          else sub_or_gsub(f)
+          // range_numbers(f)
+          // ("WARNING: \(input_filename):\(input_line_number): unknown filter: \(f)" | debug | not )
+          end
         end
       end
     end ;
 
-    # If $x is an object, then process its values in parallel, otherwise just run pipe($x)
-    def inparallel($x):
-     . as $in
-     | if ($x|type) == "object" then $x | map_values(. as $p | $in | pipe($p))
-       else pipe($x)
-       end;
-
     # START OF BODY of def pipe
     if (pipeline|type == "object") then .
     elif (pipeline|type == "array") then
-      if (pipeline|.[0]) == "||" then [ (pipeline|.[1:][]) as $p | inparallel($p) ]
+      if (pipeline|.[0]) == "||" then (pipeline|.[1:]) as $p | inparallel($p)
       else eval(pipeline|map(trim))
       end
     elif (pipeline|type == "string")
@@ -368,7 +338,7 @@ def pipe(pipeline):
        else $p
        end ) as $p
     | eval($p)
-    else pipeline|error // null
+    else pipeline
     end ;
 
 
@@ -701,4 +671,3 @@ def check_schemas(stream):
   conforms_to_schemas($schemas[]; true);
 
 def check_schemas: check_schemas(inputs);
-

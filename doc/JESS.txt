@@ -452,23 +452,25 @@ For pipe-separated values, we would have to use an array-defined pipeline:
 ### Array-defined pipelines
 
 If the first item in the array is "||", then the remaining items are all evaluated in parallel,
-and the result is assembled into an array.  The values in top-level objects are also
-evaluated in parallel.  For example:
+and the result is assembled into an array.  All the values within top-level objects are also
+evaluated in parallel.
+
+For example:
 
 Input: `{"a": 0, "b": 1 }`
 Pipeline: ["||", ".[a]", ".[b]" ]
 Result: [0,1]
 
-Input: {"a": 0, "b": 1
+Input: {"a": 0, "b": 1}
 Pipeline: ["||", {"x": ".[a]", "y": ".[b]"} ]
 Result:  [{"x": 0, "y": 1}]
 
 If the first item in the array is not "||", evaluation of the items,
-say p1, p2, ..., as if in a pipeline like `p1 | p2 | ...`, with the
-understanding that if any of these elements, say pi, is itself an
-array, then the result of evaluating pi is an array of the items
-produced by the pipeline composed of the elements of pi.  Here are two
-examples:
+say p1, p2, ..., occurs as if the items are in a pipeline like `p1 |
+p2 | ...`, with the understanding that if any of these elements, say
+pi, is itself an array, then the result of evaluating pi is an array
+of the items produced by the pipeline composed of the elements of pi.
+Here are two examples:
 
 Input: "ab"
 Pipeline: [[ "split(\"\")" ]]
@@ -564,10 +566,25 @@ PRIM[][][], and so on.
 
 #### Notes
 
-1) `FOO|.[BAR]` cannot be abbreviated to `FOO[BAR]' or `FOO.BAR`.
+1) Strings and arrays that occur where a pipeline is expected are
+interpreted as described above.  Any other JSON value that occurs
+where a pipeline is expected evaluates to itself.
 
-2) When using the ".[key]" notation to access the value at a key,
-be careful not to add any spaces that are not actually part of the key name.
+2) A literal JSON string can be included within a pipeline
+by adding exterior escaped double-quotation marks, so for example:
+
+    `"\"LITERAL\""` would evaluate to the JSON string: `"LITERAL"`
+
+Another way to include a literal JSON string within a JESS pipeline is to
+include it as part of a JSON object, and then extract it, e.g.
+
+    [ {"s": "LITERAL"}, ".[s]" ]
+
+3) `FOO|.[BAR]` cannot be abbreviated to `FOO[BAR]' or `FOO.BAR`.
+
+4) When using the `".[foo]"` notation within a JESS pipeline to access
+the value at a key named `"foo"`, be careful not to add any spaces
+that are not actually part of the key name.
 
 ## Illustrations
 
