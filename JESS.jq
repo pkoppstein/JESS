@@ -1,18 +1,18 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.12",
+  "version": "0.0.1.13",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
   "repository": {
     "type": "hg", 
-    "url":  "https://bitbucket.org/pkoppstein/JESS",
+    "url": "https://bitbucket.org/pkoppstein/JESS",
   }
 };
 
 # JESS - JSON Extended Structural Schemas
-# Date: 2019-07-25
+# Date: 2019-08-12
 # For documentation, see JESS.txt
 
 # Requires: jq 1.5 or higher
@@ -34,7 +34,7 @@ module {
 # jq --argfile schema MYSCHEMA.JSON 'include "JESS"; check' STREAM_OF_JSON_DOCUMENTS
 # jq --argfile schema MYSCHEMA.JSON --argfile prelude PRELUDE.json 'include "JESS"; check' STREAM_OF_JSON_DOCUMENTS
 
-# WARNING: The specification of the named types "base64" and "ISO8601Date" is subject to change.
+# WARNING: The specifications of the named types "base64" and "ISO8601Date" are subject to change.
 
 # NEWS:
 # 1.5 | conforms_to(1.5)
@@ -47,6 +47,7 @@ module {
 # .thencond .elsecond
 # pipe("\"LITERAL\"") evaluates to `"LITERAL"`
 # In pipe(pipeline): pipeline may be any JSON entity, and is only interpreted specially if it is a string or array.
+# "getpath"
 
 # NOTE: The value of an "enumeration", "subsetof", "equals_setof", or "supersetof" key
 #       in a constraint object can be an array, or a JSON object with a "pipeline" key.
@@ -55,6 +56,11 @@ module {
 
 def nullable:
   $ARGS.named.nullable;
+
+def trace($msg):
+  if $ARGS.named.explain then  . as $in | $msg | debug | $in
+  else .
+  end;
 
 def assert($assertion; etc):
   if $assertion then .
@@ -117,6 +123,61 @@ def is_ISO8601Date:
   test("^(-?([1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])[T ](2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\\.[0-9]+)?"
        + "(Z|[-+][0-9][0-9](:?[0-9][0-9])?)?" );
 
+# Given a string representions of a jq aray-path, return the array-path.
+def topatharray:
+  # Required PEG foundations
+  def star(E): (E | star(E)) // . ;
+  def plus(E): E | (plus(E) // . );
+
+  ### Helper functions:
+
+  # Consume a regular expression rooted at the start of .remainder, or emit empty;
+  # on success, update .remainder and set .match but do NOT update .result
+  def consume($re):
+    # on failure, match yields empty
+    (.remainder | match("^" + $re)) as $match
+    | .remainder |= .[$match.length :]
+    | .match = $match.string;
+
+  def parse($re):
+    consume($re)
+    | .result = .result + [.match] ;
+
+  def parseNumber($re):
+    consume($re)
+    | .result = .result + [.match|tonumber] ;
+
+  def ws: consume(" *");
+
+  # This regex uses negative look-behind to match everything between the
+  # outermost quotation marks of the print version of a JSON string
+  def jsonstring: "(((?<=\\\\)\")|[^\"])*";
+
+  def n: parseNumber("[0-9]+");
+
+  def dot: consume(" *[.] *");
+
+  def ary: consume(" *\\[") | ws | n |  ws | consume("]");
+
+  def quotedKey:   consume("[[] *\"") | parse(jsonstring) | consume("\" *]");
+
+  def unquotedKey: consume("[[]")     | parse("[^]]+") | consume("]");
+
+  def identifier: parse("[a-zA-Z_][a-zA-Z_0-9]*");
+
+  def key: ws | (quotedKey // unquotedKey);
+
+  def pipe: consume(" *[|] *") ;
+
+  def identifiers: plus(dot | identifier);
+
+  def path: (identifiers // dot) | star(ary // key) | star( pipe | path) | ws;
+
+  {remainder: .}
+  | path
+  | if .remainder =="" then path.result else null end
+;
+
 
 # pipe(pipeline) evaluates a pipeline of filters specified by the argument,
 # which may be any JSON value but is interpreted specially if it is a string or an array.
@@ -127,9 +188,8 @@ def is_ISO8601Date:
 #
 def pipe(pipeline):
 
-  # Assuming the input is a valid JSON string, 
-  # this regex uses negative look-behind to match
-  # everything between the outermost quotation marks:
+  # This regex uses negative look-behind to match everything between the
+  # outermost quotation marks of the print version of a JSON string
   def jsonstring: "(((?<=\\\\)\")|[^\"])*";
 
   def trim: if type == "string" then sub("^ +";"") | sub(" +$";"") else . end;
@@ -328,16 +388,19 @@ def pipe(pipeline):
 
     # START OF BODY of def pipe
     if (pipeline|type == "object") then .
-    elif (pipeline|type == "array") then
-      if (pipeline|.[0]) == "||" then (pipeline|.[1:]) as $p | inparallel($p)
-      else eval(pipeline|map(trim))
-      end
+    elif (pipeline|type == "array")
+    then if (pipeline|.[0]) == "||" then (pipeline|.[1:]) as $p | inparallel($p)
+         else eval(pipeline|map(trim))
+         end
     elif (pipeline|type == "string")
-    then (pipeline|trim) as $p
-    | (if ($p|index("|")) then $p | split("|") | map(trim)
-       else $p
-       end ) as $p
-    | eval($p)
+    then ((pipeline | topatharray) // null) as $p
+    | if $p then getpath($p)
+       else (pipeline|trim) as $p
+       | (if ($p|index("|")) then $p | split("|") | map(trim)
+          else $p
+          end ) as $p
+       | eval($p)
+       end
     else pipeline
     end ;
 
@@ -358,12 +421,14 @@ def conforms_to(t; exactly):
   def isUnion: type == "array" and length>1 and .[0] == "+" ;
 
   def isCompound: isConjunction or isDisjunction or isUnion;
-  
+
+  def isGetpath: type == "array" and length > 2 and (.[0] == "getpath" or .[0] == "|");
+
   # Does . have the form of a JESS type?
   # isExtendedType returns true for strings since any string is potentially a type name.
   def isExtendedType:
     if type == "string" then true
-    elif isConjunction or isUnion then all(.[1:][]; isExtendedType)
+    elif isConjunction or isUnion or isGetpath then all(.[1:][]; isExtendedType)
     elif type =="array" then all(.[]; isExtendedType)
     else true
     end ;
@@ -572,6 +637,7 @@ def conforms_to(t; exactly):
     # $c.setof is a special case:
     elif $c.setof
     then [ pipe($c.setof)? ] | unique | conforms_with_constraint($c | del(.setof) )
+
     else conforms_with_constraint_ignore_pipeline
     end ;
 
@@ -591,6 +657,11 @@ def conforms_to(t; exactly):
   def in_any(t):
     (t|length == 0) or
     . as $x | any( t[]; . as $type | $x | conforms_to($type)) ;
+
+  def mygetpath($p):
+    if $p|type == "array" then getpath($p)
+    else getpath($p | topatharray)
+    end ;
 
   # START OF BODY of conforms_to
   if type == t then true
@@ -623,6 +694,13 @@ def conforms_to(t; exactly):
 #      | if pipe($pipe) then true else false end
       else "invalid prelude at \(t)" | debug | not
       end
+      
+  elif t|isGetpath then mygetpath(t[1]) as $value
+  | all(range(2; t|length);
+        . as $i
+	| t[$i] as $schema
+	| assert($value | conforms_to( $schema ); "failure for getpath(\(t[1])) at schema #\($i - 1)") )
+	
   elif t|isUnion       then in_any(t[1:])
   elif t|isConjunction then conforms_with_conjunction(t)
 

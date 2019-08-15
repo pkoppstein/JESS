@@ -1,4 +1,4 @@
-2019.07.25 Version 0.0.1.11
+2019.08.12 Version 0.0.1.13
 
 JESS.txt
 
@@ -15,6 +15,7 @@ JESS.txt
 ## Extensions
 ### Conjunction Constraints
 ### Object-defined Constraints
+### getpath
 ### Pipelines
 #### Pipeline Primitives
 ### Specifying JSON Objects
@@ -26,7 +27,8 @@ JESS.txt
 
 ## Part 3: Examples
 
-## APPENDIX: Constraint Object Semantics
+## APPENDIX 1: "getpath"
+## APPENDIX 2: Constraint Object Semantics
 
 ##################################################################
 
@@ -341,7 +343,7 @@ or if the context requires `"/\\.?/"` or `"/[.]?/"`.
 
 # Extensions
 To support the specification of conditions which cannot be expressed
-using purely structural schemas, JESS introduces two additional constructs:
+using purely structural schemas, JESS introduces three additional constructs:
 
 * "union types" are denoted by arrays of the form `["+", ...]`
   and represent the union of the types specified by ....
@@ -360,6 +362,20 @@ one could use the following expression:
    ["&", {"schema": {"id": "integer", "name": "string" },
        {"keys_unsorted": ["id","name"] } ]
 ```
+
+In addition, as a convenience and to support modular schemas,
+one can specify that certain schemas are only applicable to one
+particular component of the JSON entities under consideration.
+The notation takes the form:
+
+    ["getpath", PATH, S ... ]
+
+where PATH is an array or a string specifying a path, and S ...
+signifies one or more schemas.  The idea is that the specified
+schemas are only relevant to the `getpath(PATH)` component of the JSON
+entities under consideration.  Here PATH can be specified using the
+`.foo.bar` style of notation, which also allows `.[foo]` as an
+abbreviation of `.["foo"]`.  See Appendix 1 for further details about PATH.
 
 The following subsection gives further details about conjunction
 constraints but it is worth emphasizing here that, as illustrated in
@@ -466,10 +482,11 @@ Pipeline: ["||", {"x": ".[a]", "y": ".[b]"} ]
 Result:  [{"x": 0, "y": 1}]
 
 If the first item in the array is not "||", evaluation of the items,
-say p1, p2, ..., occurs as if the items are in a pipeline like `p1 |
-p2 | ...`, with the understanding that if any of these elements, say
-pi, is itself an array, then the result of evaluating pi is an array
-of the items produced by the pipeline composed of the elements of pi.
+say p1, p2, ..., occurs as if the items are in a pipeline like `p1 | p2 | ...`,
+with the understanding that if any of these elements, say pi,
+is itself an array, then the result of evaluating pi is an array of the items
+produced by the pipeline composed of the elements of pi.
+
 Here are two examples:
 
 Input: "ab"
@@ -764,7 +781,7 @@ Objects;
  expressions.
 
 9) a JESS Constraint Object is a JSON object specifying a set of constraints,
-   as described in the APPENDIX;
+   as described in Appendix 2.
 
 JSON objects at the top-level of JESS Conjunctions are all interpreted
 as JESS Constraint Objects, which may only occur there or as the
@@ -783,7 +800,54 @@ value of an "ifcond", an "thencond", or an "elsecond" in a Constraint Object.
 `[false, 1] :: ["&", {"length": 2}, ["integer", "boolean"] ]`
     
 
-# APPENDIX: Constraint Object Semantics
+# APPENDIX 1: "getpath"
+
+If a schema is given in the form:
+
+    ["getpath", PATH, S ....]
+
+then the schema or schemas specified by S .... apply only
+to the component specified by PATH.
+
+Using jq's syntax, if x is a JSON entity, then
+
+    x :: ["getpath", PATH, S]
+
+if and only if `x | getpath(PATH) :: S`
+
+PATH should either be an array of key names or array indices, or
+a string represenation of such an array.  
+
+Here are some examples.
+
+```
+PATH as an array            equivalent string         abbreviated forms
+                                      with pipes
+
+["x", "a"]                         ".x | .a"                         ".x.a"
+                                      ".[\"x\"] | .[\"a\"]"         ".[x][a]"
+                                				           
+["x", "a", 0, "b"]               ".x|.a[0]|.b"		  ".x.a[0][b]"
+```
+
+Notice that when PATH is specified as a string, the usual requirement
+that key names must be JSON strings is dropped.
+
+Some key points are:
+
+1) The only allowed string abbreviations are:
+
+  a) the dropping of occurrences of the pipe-dot pair: "|."
+
+  b) the dropping of quotation marks in the form `[KEYNAME]` if KEYNAME does not contain any right-brackets.
+
+2) If the form `[KEYNAME]` rather than `["KEYNAME"]` is used,  then all the characters (including any spaces)
+    between the outermost brackets is regarded as being part of the key name.
+    
+It follows from 1(a) that `.["x"] | .["a"]` cannot be abbreviated to `.["x"].["a"]`.
+
+
+# APPENDIX 2: Constraint Object Semantics
 
 A JESS Constraint Object is simply a JSON object
 that serves to define one or more constraints.

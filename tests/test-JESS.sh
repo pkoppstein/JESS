@@ -7,7 +7,7 @@
 # --expected  # show the expected output
 # --nullable  # --arg nullable true
 
-VERSION="0.0.12"
+VERSION="0.0.13"
 
 NULLABLE=
 EXPLAIN=
@@ -156,6 +156,11 @@ jq -nc $LOCATION $NULLABLE $EXPLAIN 'include "JESS";
 
    # When a string, .enumeration should evaluate to an array; see also .arrayof
    [ {"enumeration": [1,2], "a":1},   ["&", {"forall": ".[a]", "enumeration": ".[enumeration]" }] ],
+
+   [{a:1, b:2},         ["getpath", ["a"], "integer"]],
+
+   [{a:1, b:"2"},       ["&", ["getpath", ["a"], "integer"], ["|", ".[b]", "string"] ]],
+   [{x:{a:1, b:"2"}},   ["&", ["getpath", ["x","a"], "integer"], ["|", ".x.b", "string"] ]],
 
    # An integrity constraint:
    [ {objects: [{id: 1, name: "A"}, {id:2, name: "B"},  {id:3, name: "C"} ],
