@@ -1,7 +1,7 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.13",
+  "version": "0.0.1.14",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
@@ -175,7 +175,7 @@ def topatharray:
 
   {remainder: .}
   | path
-  | if .remainder =="" then path.result else null end
+  | if .remainder =="" then .result else null end
 ;
 
 

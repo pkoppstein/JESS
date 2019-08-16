@@ -1,4 +1,4 @@
-2019.08.12 Version 0.0.1.13
+2019.08.12 Version 0.0.1.14
 
 JESS.txt
 
@@ -474,11 +474,16 @@ evaluated in parallel.
 For example:
 
 Input: `{"a": 0, "b": 1 }`
+
 Pipeline: ["||", ".[a]", ".[b]" ]
+
 Result: [0,1]
 
+
 Input: {"a": 0, "b": 1}
+
 Pipeline: ["||", {"x": ".[a]", "y": ".[b]"} ]
+
 Result:  [{"x": 0, "y": 1}]
 
 If the first item in the array is not "||", evaluation of the items,
@@ -490,11 +495,16 @@ produced by the pipeline composed of the elements of pi.
 Here are two examples:
 
 Input: "ab"
+
 Pipeline: [[ "split(\"\")" ]]
+
 Result: as for the jq expression `"ab" | [ split("") ]`, i.e. `[ ["a","b"] ]`
 
+
 Input: "ab"
+
 Pipeline: ["split(\"\")"], "length"]
+
 Result: 1
 
 
@@ -625,9 +635,9 @@ we could write:
 ### Specifying JSON Objects
 
 In general, when specifying the schema of a JSON object, one may wish to specify:
--- its exact set of keys; or
--- the minimal set of keys it must have; or
--- the maximal set of keys it may have.
+* its exact set of keys; or
+* the minimal set of keys it must have; or
+* the maximal set of keys it may have.
 
 Here are examples of these three types of specifications expressed in JESS:
 
@@ -821,13 +831,13 @@ a string represenation of such an array.
 Here are some examples.
 
 ```
-PATH as an array            equivalent string         abbreviated forms
-                                      with pipes
+PATH as an array            equivalent string           abbreviated forms
+                               with pipes
 
-["x", "a"]                         ".x | .a"                         ".x.a"
-                                      ".[\"x\"] | .[\"a\"]"         ".[x][a]"
-                                				           
-["x", "a", 0, "b"]               ".x|.a[0]|.b"		  ".x.a[0][b]"
+["x", "a"]                  ".x | .a"                     ".x.a"
+                            ".[\"x\"] | .[\"a\"]"         ".[x][a]"
+
+["x", "a", 0, "b"]          ".x|.a[0]|.b"                 ".x.a[0][b]"
 ```
 
 Notice that when PATH is specified as a string, the usual requirement
