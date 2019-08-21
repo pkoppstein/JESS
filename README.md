@@ -18,18 +18,22 @@ This repository contains:
 
 ## Table of Contents
 
-* [Highlights](#markdown-header-highlights)
-* [Installation](#markdown-header-installation)
-* [Usage](#markdown-header-usage)
-* [API](#markdown-header-api)
-    * [check](#markdown-header-check)
-    * [check_schemas](#markdown-header-check_schemas)
-    * [check(stream)](#markdown-header-check_stream)
-    * [check_schemas(stream)](#markdown-header-check_schemas(stream))
-    * [conforms_to(schema)](#markdown-header-conforms_to_schema)
-* [Experimental Aspects of the JESS Language](#markdown-header-experimental-aspects-of-the-jess-language)
-* [Contributing](#markdown-header-contributing)
-* [License](#markdown-header-license)
+  - [Highlights](#highlights)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [Using JESS.jq at the command-line](#using-jessjq-at-the-command-line)
+      - [With single schema and one or more preludes:](#with-single-schema-and-one-or-more-preludes)
+      - [With multiple schemas and one or more preludes:](#with-multiple-schemas-and-one-or-more-preludes)
+    - [Examples](#examples)
+  - [jq functions](#jq-functions)
+    - [check](#check)
+    - [check(stream)](#checkstream)
+    - [check_schemas](#check_schemas)
+    - [check_schemas(stream)](#check_schemasstream)
+    - [conforms_to(schema)](#conforms_toschema)
+  - [Experimental Aspects of the JESS Language](#experimental-aspects-of-the-jess-language)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Highlights
 
@@ -69,7 +73,7 @@ One way to do so is to check out this repository to directory `~/.jq/`:
 ~~~sh
 mkdir ~/.jq
 cd ~/.jq
-hg clone https://pkoppstein@bitbucket.org/pkoppstein/jess
+hg clone https://github.com/pkoppstein/JESS.git
 # You may wish also to create a symlink to the JESS script, e.g. by executing:
 ln -s ~/.jq/JESS/bin/JESS ~/bin
 ~~~
@@ -81,8 +85,8 @@ Another option would be to download the JESS.jq and JESS files individually, e.g
 ~~~sh
 mkdir -p JESS ~/bin
 cd JESS
-wget -N https://bitbucket.org/pkoppstein/jess/src/default/JESS.jq
-wget -N https://bitbucket.org/pkoppstein/jess/src/default/bin/JESS
+wget -N https://raw.githubusercontent.com/pkoppstein/JESS/master/JESS.jq
+wget -N https://raw.githubusercontent.com/pkoppstein/JESS/master/bin/JESS
 chmod +x JESS
 ln -s $(pwd)/JESS ~/bin
 ~~~
@@ -97,7 +101,7 @@ For help regarding the wrapper script, run `JESS -h`.
 
 An overview of the main functions provided by JESS.jq for conformance
 checking is given below. For details, see the documentation in the doc
-folder, or this repository's [Wiki](https://bitbucket.org/pkoppstein/jess/wiki).
+folder, or this repository's [Wiki](https://github.com/pkoppstein/jess/wiki).
 
 See [jq manual](https://stedolan.github.io/jq/manual/#Modules) for how to use jq modules in general.
 
@@ -209,9 +213,9 @@ The definitions of the following named types are experimental and subject to cha
 
 ## Contributing
 
-The source code is hosted at <https://bitbucket.org/pkoppstein/jess/>
+The source code is hosted at <https://github.com/pkoppstein/jess/>
 
-Bug reports and feature requests [are welcome](https://bitbucket.org/pkoppstein/jess/issues)
+Bug reports and feature requests [are welcome](https://github.com/pkoppstein/JESS/issues)
 
 ## License
 
