@@ -22,7 +22,7 @@ This repository contains:
   - [Installation](#installation)
   - [Usage](#usage)
     - [Using JESS.jq at the command-line](#using-jessjq-at-the-command-line)
-      - [With single schema and one or more preludes:](#with-single-schema-and-one-or-more-preludes)
+      - [With a single schema and one or more preludes:](#with-a-single-schema-and-one-or-more-preludes)
       - [With multiple schemas and one or more preludes:](#with-multiple-schemas-and-one-or-more-preludes)
     - [Examples](#examples)
   - [jq functions](#jq-functions)
@@ -107,17 +107,17 @@ See [jq manual](https://stedolan.github.io/jq/manual/#Modules) for how to use jq
 
 ### Using JESS.jq at the command-line
 
-####With a single schema:
+#### With a single schema:
 ~~~sh
 jq -n --argfile schema PATHNAME 'include "JESS"; check' INPUT.json ...
 ~~~
 
-####With a single schema in nullable mode:
+#### With a single schema in nullable mode:
 ~~~sh
 jq -n --arg nullable true --argfile schema PATHNAME 'include "JESS"; check' INPUT.json ...
 ~~~
 
-#### With single schema and one or more preludes:
+#### With a single schema and one or more preludes:
 ~~~sh
 # jq -n --argfile schema PATHNAME --slurpfile PATHNAME 'include "JESS"; check' INPUT.json ...
 ~~~
