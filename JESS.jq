@@ -1,7 +1,7 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.14",
+  "version": "0.0.1.16",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
@@ -12,7 +12,8 @@ module {
 };
 
 # JESS - JSON Extended Structural Schemas
-# Date: 2019-08-12
+# Date: 2024-06-22 
+# Prior version: 0.0.1.14 of 2019-08-12
 # For documentation, see JESS.txt
 
 # Requires: jq 1.5 or higher
@@ -37,6 +38,7 @@ module {
 # WARNING: The specifications of the named types "base64" and "ISO8601Date" are subject to change.
 
 # NEWS:
+# remove pow10 for compatibility with jq 1.7
 # 1.5 | conforms_to(1.5)
 # .ifcond # can be specified as an alternative to, or in addition to, .if
 # "scalar"
@@ -327,7 +329,7 @@ def pipe(pipeline):
     elif f == "numbers" then numbers
     elif f == "objects" then objects
     elif f == "paths" then paths
-    elif f == "pow10" then pow10
+    # elif f == "pow10" then pow10
     elif f == "reverse" then reverse
     elif f == "round" then round
     elif f == "scalars" then scalars
