@@ -1,19 +1,19 @@
 module {
   "name": "JESS",
   "description": "Conformance checker for JSON Extended Structural Schemas",
-  "version": "0.0.1.16",
+  "version": "0.0.1.17",
   "homepage": "",
   "license": "MIT",
   "author": "pkoppstein at gmail dot com",
   "repository": {
-    "type": "hg", 
-    "url": "https://bitbucket.org/pkoppstein/JESS",
+    "type": "git", 
+    "url": "https://github.com/pkoppstein/JESS.git"
   }
 };
 
 # JESS - JSON Extended Structural Schemas
 # Date: 2024-06-22 
-# Prior version: 0.0.1.14 of 2019-08-12
+# Variant of version 0.0.1.14 of 2019-08-12
 # For documentation, see JESS.txt
 
 # Requires: jq 1.5 or higher
@@ -23,7 +23,7 @@ module {
 # check(stream; schema)
 # check_schemas(stream; schemas) # check against an array of schemas
 #
-# check(stream)                  # check(stream; $schema)
+# check(stream)                  # check(stream; $schema[0])  # assume $schema is defined using --slurpfile schema
 # check                          # check(inputs)
 # check_schemas(stream)          # multiple schemas specified in $schema
 # check_schemas                  # check_schemas(inputs)
@@ -732,7 +732,7 @@ def check(stream; $schema):
     | "Schema mismatch #\(.error) at \(input_filename):\(input_line_number): entity #\(.n):", $in ) ;
 
 def check(stream):
-  check(stream; $schema);
+  check(stream; $schema[0]);
 
 def check: check(inputs);
 
