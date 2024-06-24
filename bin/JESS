@@ -1,16 +1,19 @@
 #!/bin/bash
-# Copyright (C) 2019 peak@princeton.edu
+# Copyright (C) 2019, 2024 peak@princeton.edu
 # License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported (CC BY-NC-SA 3.0)
 # See http://creativecommons.org/licenses/by-nc/3.0/
 # Attribution shall include the copyright notice above.
 
 # For help: $0 --help
 
-VERSION=0.0.1.5
-
-# Requires: jq
+VERSION=0.0.1.6
 
 # JSON Schema Validation using JESS.jq
+
+# Requires: jq; JESS.jq with check(stream) defined using $schema[0]
+
+# NEWS:
+# 0.0.1.6: Banish --argfile
 
 BN=$(basename "$0")
 
@@ -105,7 +108,7 @@ do case "$1" in
       --prelude ) PRELUDE="$2"
            shift 2
 	   ;;
-      --relax  ) RELAX='["&", {"::<=": $schema}]'
+      --relax  ) RELAX='["&", {"::<=": $schema[0]}]'
 		 shift
            ;;
       --schema ) SCHEMA="$2"
@@ -170,7 +173,7 @@ function wrap {
 }
 		
 function f {
-  $JQ -n --argfile schema "$SCHEMA" '
+  $JQ -n --slurpfile schema "$SCHEMA" '
     include "JESS"; '"check($FILTER $(wrap) )" "${@}" 
 }
 
@@ -180,17 +183,17 @@ function d {
 }
 
 function pf {
-  $JQ -n --argfile prelude "$PRELUDE" --argfile schema $SCHEMA '
+  $JQ -n --argjson prelude "$(cat "$PRELUDE")" --slurpfile schema "$SCHEMA" '
     include "JESS"; '"check($FILTER $(wrap) )" "${@}" 
 }
 
 function pd {
-  $JQ -n --argfile prelude "$PRELUDE" --slurpfile schema <( cat "$SCHEMA"/*.jess ) '
+  $JQ -n --argjson prelude "$(cat "$PRELUDE")" --slurpfile schema <( cat "$SCHEMA"/*.jess ) '
     include "JESS"; '"check_schemas($FILTER)" "${@}" 
 }
 
 function df {
-    $JQ -n --slurpfile prelude <( cat "$PRELUDE"/*.prelude.json)  --argfile schema "$SCHEMA" '
+    $JQ -n --slurpfile prelude <( cat "$PRELUDE"/*.prelude.json)  --slurpfile schema "$SCHEMA" '
   include "JESS"; '"check($FILTER; $(wrap) )"
 }
 
@@ -209,4 +212,3 @@ elif [ -d "$PRELUDE" ] ; then
 else
   if [ -d "$SCHEMA" ] ; then pd "${@}" ; else pf "${@}" ; fi
 fi
-
